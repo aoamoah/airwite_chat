@@ -19,9 +19,13 @@ export class AnnotationStore {
     };
   }
 
-  /** Insertion order is paint order, so later strokes cover earlier ones. */
-  list(): Stroke[] {
-    return Array.from(this.strokes.values());
+  /**
+   * Insertion order is paint order, so later strokes cover earlier ones.
+   * Pass a surface id to get just that board.
+   */
+  list(surface?: string): Stroke[] {
+    const all = Array.from(this.strokes.values());
+    return surface === undefined ? all : all.filter((stroke) => stroke.surface === surface);
   }
 
   get(id: string): Stroke | undefined {
@@ -46,10 +50,21 @@ export class AnnotationStore {
     if (this.strokes.delete(id)) this.emit();
   }
 
-  clear(): void {
+  /** Wipes one board, or every board when no surface is given. */
+  clear(surface?: string): void {
     if (this.strokes.size === 0) return;
-    this.strokes.clear();
-    this.emit();
+    if (surface === undefined) {
+      this.strokes.clear();
+      this.emit();
+      return;
+    }
+    let changed = false;
+    for (const [id, stroke] of this.strokes) {
+      if (stroke.surface !== surface) continue;
+      this.strokes.delete(id);
+      changed = true;
+    }
+    if (changed) this.emit();
   }
 
   /**

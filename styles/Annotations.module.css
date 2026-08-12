@@ -1,14 +1,23 @@
 /*
- * The canvas is fixed-positioned and driven by JS to sit exactly over the shared
- * picture, because <VideoConference> owns its DOM and offers no slot to nest an
- * overlay inside the screenshare tile.
+ * Each surface is fixed-positioned and driven by JS to sit exactly over one
+ * video, because <VideoConference> owns its DOM and offers no slot to nest an
+ * overlay inside a tile.
+ *
+ * The wrapper matches the tile and clips; the canvas inside it matches the full
+ * video frame, which under `object-fit: cover` is larger than the tile. That
+ * reproduces the video's own crop, so ink is hidden exactly where picture is.
  */
-.canvas {
+.surface {
   position: fixed;
   z-index: 5;
+  overflow: hidden;
   touch-action: none; /* stop touch drags from scrolling or pinch-zooming */
   user-select: none;
   -webkit-user-select: none;
+}
+
+.canvas {
+  position: absolute;
 }
 
 .toolbar {

@@ -2,8 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { AnnotationStore } from './store';
 import type { Stroke } from './types';
 
-function stroke(id: string, author = 'alice', points: number[] = [0, 0]): Stroke {
-  return { id, author, color: '#ff0000', width: 0.006, points: [...points] };
+function stroke(
+  id: string,
+  author = 'alice',
+  points: number[] = [0, 0],
+  surface = 'screen:alice',
+): Stroke {
+  return { id, author, surface, color: '#ff0000', width: 0.006, points: [...points] };
 }
 
 describe('AnnotationStore', () => {
@@ -66,6 +71,44 @@ describe('AnnotationStore', () => {
     expect(store.lastStrokeBy('alice')?.id).toBe('a2');
     expect(store.lastStrokeBy('bob')?.id).toBe('b1');
     expect(store.lastStrokeBy('carol')).toBeUndefined();
+  });
+
+  it('keeps boards independent', () => {
+    const store = new AnnotationStore();
+    store.begin(stroke('screen1', 'alice', [0, 0], 'screen:alice'));
+    store.begin(stroke('face1', 'alice', [0, 0], 'camera:bob'));
+    store.begin(stroke('face2', 'bob', [0, 0], 'camera:bob'));
+
+    expect(store.list('camera:bob').map((s) => s.id)).toEqual(['face1', 'face2']);
+    expect(store.list('screen:alice').map((s) => s.id)).toEqual(['screen1']);
+    expect(store.list()).toHaveLength(3);
+  });
+
+  it('clearing one board leaves the others alone', () => {
+    const store = new AnnotationStore();
+    store.begin(stroke('screen1', 'alice', [0, 0], 'screen:alice'));
+    store.begin(stroke('face1', 'alice', [0, 0], 'camera:bob'));
+
+    store.clear('camera:bob');
+    expect(store.list().map((s) => s.id)).toEqual(['screen1']);
+  });
+
+  it('clearing an untouched board changes nothing and notifies nobody', () => {
+    const store = new AnnotationStore();
+    store.begin(stroke('screen1', 'alice', [0, 0], 'screen:alice'));
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.clear('camera:nobody');
+    expect(listener).not.toHaveBeenCalled();
+    expect(store.list()).toHaveLength(1);
+  });
+
+  it('undo reaches across boards to the author most recent stroke', () => {
+    const store = new AnnotationStore();
+    store.begin(stroke('a1', 'alice', [0, 0], 'screen:alice'));
+    store.begin(stroke('a2', 'alice', [0, 0], 'camera:bob'));
+    expect(store.lastStrokeBy('alice')?.id).toBe('a2');
   });
 
   it('preserves paint order across removals', () => {

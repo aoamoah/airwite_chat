@@ -14,6 +14,8 @@ type Props = {
   onWidthChange: (name: StrokeWidthName) => void;
   onUndo: () => void;
   onClear: () => void;
+  /** Label of the board Clear will wipe, or null when none is active yet. */
+  clearTarget: string | null;
 };
 
 const WIDTH_ORDER: StrokeWidthName[] = ['thin', 'medium', 'thick'];
@@ -65,6 +67,7 @@ export function AnnotationToolbar({
   onWidthChange,
   onUndo,
   onClear,
+  clearTarget,
 }: Props) {
   const toggle = (next: AnnotationTool) => onToolChange(tool === next ? 'none' : next);
 
@@ -150,9 +153,14 @@ export function AnnotationToolbar({
           <button
             className={`lk-button ${styles.toolButton}`}
             onClick={onClear}
-            title="Clear the board for everyone"
+            disabled={clearTarget === null}
+            title={
+              clearTarget === null
+                ? 'Point at a video to choose which board to clear'
+                : `Clear every stroke on ${clearTarget} for everyone`
+            }
           >
-            Clear all
+            {clearTarget === null ? 'Clear' : `Clear ${clearTarget}`}
           </button>
         </>
       )}

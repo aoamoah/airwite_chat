@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { strokesUnderPoint } from './hitTest';
 import type { Stroke } from './types';
-import type { ContentRect } from './useScreenShareRect';
+import type { Rect } from './geometry';
 
 /** Deliberately non-square: catches radius maths done in normalized units. */
-const RECT: ContentRect = { left: 0, top: 0, width: 1000, height: 500 };
+const RECT: Rect = { left: 0, top: 0, width: 1000, height: 500 };
 const RADIUS = 0.02; // 0.02 * 500 = 10px of reach
 
 function stroke(id: string, points: number[], width = 0.006): Stroke {
-  return { id, author: 'alice', color: '#ff0000', width, points };
+  return { id, author: 'alice', surface: 'screen:alice', color: '#ff0000', width, points };
 }
 
 describe('strokesUnderPoint', () => {

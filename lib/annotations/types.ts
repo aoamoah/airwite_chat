@@ -11,6 +11,8 @@ export type Stroke = {
   id: string;
   /** Participant identity of whoever drew it. Set from the sender, never from the payload. */
   author: string;
+  /** Which board this belongs to — see Surface.id. Boards are independent. */
+  surface: string;
   color: string;
   /** Line width as a fraction of the content box's shorter side, so it scales with the share. */
   width: number;
@@ -24,12 +26,12 @@ export type Stroke = {
  * rather than sent per movement, see BATCH_INTERVAL_MS.
  */
 export type AnnotationMessage =
-  | { t: 'begin'; id: string; color: string; width: number; p: number[] }
+  | { t: 'begin'; id: string; s: string; color: string; width: number; p: number[] }
   | { t: 'points'; id: string; p: number[] }
   | { t: 'end'; id: string }
   | { t: 'undo'; id: string }
   | { t: 'erase'; ids: string[] }
-  | { t: 'clear' }
+  | { t: 'clear'; s: string }
   | { t: 'sync-request' }
   | { t: 'sync-state'; strokes: Stroke[] };
 

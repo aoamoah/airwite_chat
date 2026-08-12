@@ -1,4 +1,4 @@
-import type { ContentRect } from './useScreenShareRect';
+import type { Rect } from './geometry';
 import type { Stroke } from './types';
 
 /**
@@ -39,7 +39,7 @@ export function strokesUnderPoint(
   strokes: readonly Stroke[],
   point: { x: number; y: number },
   eraserRadius: number,
-  rect: ContentRect,
+  rect: Rect,
 ): string[] {
   const shorterSide = Math.min(rect.width, rect.height);
   const px = point.x * rect.width;

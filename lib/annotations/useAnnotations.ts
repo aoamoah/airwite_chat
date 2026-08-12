@@ -76,13 +76,14 @@ export type AnnotationApi = {
   store: AnnotationStore;
   /** True between the local "writing" and "not writing" events. */
   isWriting: boolean;
-  beginStroke: (x: number, y: number, color: string, width: number) => void;
+  beginStroke: (surface: string, x: number, y: number, color: string, width: number) => void;
   extendStroke: (x: number, y: number) => void;
   endStroke: () => void;
   /** Removes whole strokes, whoever drew them. */
   eraseStrokes: (ids: string[]) => void;
+  /** Removes this participant's most recent stroke, on any board. */
   undoLast: () => void;
-  clearAll: () => void;
+  clearSurface: (surface: string) => void;
 };
 
 /**
@@ -135,6 +136,7 @@ export function useAnnotations(room: Room): AnnotationApi {
             // Attribution comes from the sender, never the payload, so undo
             // cannot be aimed at someone else's strokes.
             author: participant.identity,
+            surface: message.s,
             color: message.color,
             width: message.width,
             points: [...message.p],
@@ -159,7 +161,7 @@ export function useAnnotations(room: Room): AnnotationApi {
           for (const id of message.ids) store.remove(id);
           break;
         case 'clear':
-          store.clear();
+          store.clear(message.s);
           break;
         case 'sync-request':
           if (isSyncResponder(room, participant.identity)) {
@@ -202,11 +204,12 @@ export function useAnnotations(room: Room): AnnotationApi {
   }, [publish]);
 
   const beginStroke = React.useCallback(
-    (x: number, y: number, color: string, width: number) => {
+    (surface: string, x: number, y: number, color: string, width: number) => {
       const id = `${room.localParticipant.identity}:${Date.now()}:${strokeCounter.current++}`;
       const stroke: Stroke = {
         id,
         author: room.localParticipant.identity,
+        surface,
         color,
         width,
         points: [x, y],
@@ -216,7 +219,7 @@ export function useAnnotations(room: Room): AnnotationApi {
       pending.current = [];
       // Paint locally first so the line tracks the pointer without a round trip.
       store.begin(stroke);
-      publish({ t: 'begin', id, color, width, p: [x, y] });
+      publish({ t: 'begin', id, s: surface, color, width, p: [x, y] });
       setIsWriting(true);
 
       if (flushTimer.current) clearInterval(flushTimer.current);
@@ -281,10 +284,13 @@ export function useAnnotations(room: Room): AnnotationApi {
     publish({ t: 'undo', id: stroke.id });
   }, [room, store, publish]);
 
-  const clearAll = React.useCallback(() => {
-    store.clear();
-    publish({ t: 'clear' });
-  }, [store, publish]);
+  const clearSurface = React.useCallback(
+    (surface: string) => {
+      store.clear(surface);
+      publish({ t: 'clear', s: surface });
+    },
+    [store, publish],
+  );
 
   return {
     store,
@@ -294,6 +300,6 @@ export function useAnnotations(room: Room): AnnotationApi {
     endStroke,
     eraseStrokes,
     undoLast,
-    clearAll,
+    clearSurface,
   };
 }

@@ -1,4 +1,4 @@
-import type { ContentRect } from './useScreenShareRect';
+import type { Rect } from './geometry';
 import type { Stroke } from './types';
 
 /**
@@ -13,7 +13,8 @@ import type { Stroke } from './types';
 export function paint(
   canvas: HTMLCanvasElement,
   strokes: readonly Stroke[],
-  rect: ContentRect,
+  rect: Rect,
+  mirrored = false,
 ): void {
   const dpr = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.round(rect.width * dpr));
@@ -30,6 +31,12 @@ export function paint(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, width, height);
   ctx.scale(dpr, dpr);
+  // Strokes are stored against the true video frame. When this viewer sees the
+  // feed mirrored, flip the painting to match what is under their pointer.
+  if (mirrored) {
+    ctx.translate(rect.width, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -42,7 +49,7 @@ export function paint(
 function paintStroke(
   ctx: CanvasRenderingContext2D,
   stroke: Stroke,
-  rect: ContentRect,
+  rect: Rect,
   shorterSide: number,
 ): void {
   const points = stroke.points;
