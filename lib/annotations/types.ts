@@ -28,9 +28,13 @@ export type AnnotationMessage =
   | { t: 'points'; id: string; p: number[] }
   | { t: 'end'; id: string }
   | { t: 'undo'; id: string }
+  | { t: 'erase'; ids: string[] }
   | { t: 'clear' }
   | { t: 'sync-request' }
   | { t: 'sync-state'; strokes: Stroke[] };
+
+/** Which input mode the local pointer is in. */
+export type AnnotationTool = 'none' | 'pen' | 'eraser';
 
 /** Fractions of the content box's shorter side. */
 export const STROKE_WIDTHS = {
@@ -40,6 +44,12 @@ export const STROKE_WIDTHS = {
 } as const;
 
 export type StrokeWidthName = keyof typeof STROKE_WIDTHS;
+
+/**
+ * Eraser reach, as a fraction of the content box's shorter side — comfortably
+ * wider than the thickest pen so a stroke can be caught without pixel-hunting.
+ */
+export const ERASER_RADIUS = 0.018;
 
 /**
  * How often in-progress points are flushed to the channel. Pointer events fire

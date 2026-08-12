@@ -79,6 +79,8 @@ export type AnnotationApi = {
   beginStroke: (x: number, y: number, color: string, width: number) => void;
   extendStroke: (x: number, y: number) => void;
   endStroke: () => void;
+  /** Removes whole strokes, whoever drew them. */
+  eraseStrokes: (ids: string[]) => void;
   undoLast: () => void;
   clearAll: () => void;
 };
@@ -150,6 +152,12 @@ export function useAnnotations(room: Room): AnnotationApi {
           if (stroke?.author === participant.identity) store.remove(message.id);
           break;
         }
+        case 'erase':
+          // Unlike undo, the eraser is not restricted to its author's own
+          // strokes: it is a shared tool over shared content, on the same
+          // footing as Clear all.
+          for (const id of message.ids) store.remove(id);
+          break;
         case 'clear':
           store.clear();
           break;
@@ -254,6 +262,18 @@ export function useAnnotations(room: Room): AnnotationApi {
     };
   }, []);
 
+  const eraseStrokes = React.useCallback(
+    (ids: string[]) => {
+      // Only announce strokes that were actually still on the board, so a drag
+      // that keeps sweeping the same spot does not re-send them.
+      const removed = ids.filter((id) => store.get(id) !== undefined);
+      if (removed.length === 0) return;
+      for (const id of removed) store.remove(id);
+      publish({ t: 'erase', ids: removed });
+    },
+    [store, publish],
+  );
+
   const undoLast = React.useCallback(() => {
     const stroke = store.lastStrokeBy(room.localParticipant.identity);
     if (!stroke) return;
@@ -266,5 +286,14 @@ export function useAnnotations(room: Room): AnnotationApi {
     publish({ t: 'clear' });
   }, [store, publish]);
 
-  return { store, isWriting, beginStroke, extendStroke, endStroke, undoLast, clearAll };
+  return {
+    store,
+    isWriting,
+    beginStroke,
+    extendStroke,
+    endStroke,
+    eraseStrokes,
+    undoLast,
+    clearAll,
+  };
 }

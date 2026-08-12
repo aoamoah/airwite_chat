@@ -6,8 +6,9 @@ import { Track } from 'livekit-client';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { colorForIdentity } from './colors';
-import { STROKE_WIDTHS, type StrokeWidthName } from './types';
+import { STROKE_WIDTHS, type AnnotationTool, type StrokeWidthName } from './types';
 import { useAnnotations } from './useAnnotations';
+import { useAnnotationShortcuts } from './useAnnotationShortcuts';
 import { useScreenShareRect } from './useScreenShareRect';
 
 /**
@@ -21,7 +22,7 @@ export function AnnotationLayer() {
   const rect = useScreenShareRect();
   const annotations = useAnnotations(room);
 
-  const [active, setActive] = React.useState(false);
+  const [tool, setTool] = React.useState<AnnotationTool>('none');
   const [color, setColor] = React.useState(() => colorForIdentity(room.localParticipant.identity));
   const [widthName, setWidthName] = React.useState<StrokeWidthName>('medium');
 
@@ -40,8 +41,10 @@ export function AnnotationLayer() {
 
   const sharing = rect !== null;
   React.useEffect(() => {
-    if (!sharing) setActive(false);
+    if (!sharing) setTool('none');
   }, [sharing]);
+
+  useAnnotationShortcuts({ enabled: sharing, tool, setTool, onUndo: annotations.undoLast });
 
   const { beginStroke, extendStroke, endStroke } = annotations;
   const handleBegin = React.useCallback(
@@ -56,15 +59,16 @@ export function AnnotationLayer() {
       <AnnotationCanvas
         store={annotations.store}
         rect={rect}
-        active={active}
+        tool={tool}
         color={color}
         onBegin={handleBegin}
         onExtend={extendStroke}
         onEnd={endStroke}
+        onErase={annotations.eraseStrokes}
       />
       <AnnotationToolbar
-        active={active}
-        onToggle={() => setActive((value) => !value)}
+        tool={tool}
+        onToolChange={setTool}
         color={color}
         onColorChange={setColor}
         widthName={widthName}

@@ -14,3 +14,21 @@ export function pencilCursor(color: string): string {
   // Hotspot at (3, 23): the pencil's tip, so the line starts where it points.
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 23, crosshair`;
 }
+
+/**
+ * Builds an eraser cursor drawn to the eraser's true reach, so what it will
+ * remove is visible before pressing.
+ *
+ * Clamped because browsers refuse cursor images past roughly 128px and fall
+ * back to the default, which would leave no cursor feedback at all.
+ */
+export function eraserCursor(radiusPx: number): string {
+  const radius = Math.max(6, Math.min(40, radiusPx));
+  const size = Math.ceil(radius * 2 + 6);
+  const centre = size / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+<circle cx="${centre}" cy="${centre}" r="${radius + 1}" fill="none" stroke="#1a1a1a" stroke-width="2.6" opacity="0.65"/>
+<circle cx="${centre}" cy="${centre}" r="${radius}" fill="rgba(255,255,255,0.18)" stroke="#fff" stroke-width="1.6"/>
+</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${centre} ${centre}, cell`;
+}

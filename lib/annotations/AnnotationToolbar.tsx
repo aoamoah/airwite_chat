@@ -3,11 +3,11 @@
 import * as React from 'react';
 import styles from '../../styles/Annotations.module.css';
 import { ANNOTATION_PALETTE } from './colors';
-import { STROKE_WIDTHS, type StrokeWidthName } from './types';
+import { STROKE_WIDTHS, type AnnotationTool, type StrokeWidthName } from './types';
 
 type Props = {
-  active: boolean;
-  onToggle: () => void;
+  tool: AnnotationTool;
+  onToolChange: (tool: AnnotationTool) => void;
   color: string;
   onColorChange: (color: string) => void;
   widthName: StrokeWidthName;
@@ -41,9 +41,24 @@ function PencilIcon() {
   );
 }
 
+function EraserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M8.6 20.5H20M4.2 16.3l4.1 4.2h3.9l7.6-7.7a1.8 1.8 0 0 0 0-2.5l-4.6-4.6a1.8 1.8 0 0 0-2.5 0L4.2 13.8a1.8 1.8 0 0 0 0 2.5z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function AnnotationToolbar({
-  active,
-  onToggle,
+  tool,
+  onToolChange,
   color,
   onColorChange,
   widthName,
@@ -51,20 +66,33 @@ export function AnnotationToolbar({
   onUndo,
   onClear,
 }: Props) {
+  const toggle = (next: AnnotationTool) => onToolChange(tool === next ? 'none' : next);
+
   return (
     <div className={styles.toolbar} data-lk-theme="default">
       <button
         className={`lk-button ${styles.toolButton}`}
-        onClick={onToggle}
-        aria-pressed={active}
-        data-lk-annotating={active}
-        title={active ? 'Stop annotating' : 'Annotate the shared screen'}
+        onClick={() => toggle('pen')}
+        aria-pressed={tool === 'pen'}
+        data-lk-annotating={tool === 'pen'}
+        title="Annotate the shared screen (P)"
       >
         <PencilIcon />
         <span className={styles.buttonLabel}>Annotate</span>
       </button>
 
-      {active && (
+      <button
+        className={`lk-button ${styles.toolButton}`}
+        onClick={() => toggle('eraser')}
+        aria-pressed={tool === 'eraser'}
+        data-lk-annotating={tool === 'eraser'}
+        title="Erase strokes (E)"
+      >
+        <EraserIcon />
+        <span className={styles.buttonLabel}>Erase</span>
+      </button>
+
+      {tool === 'pen' && (
         <>
           <span className={styles.divider} role="separator" />
 
@@ -97,15 +125,26 @@ export function AnnotationToolbar({
               >
                 <span
                   className={styles.widthDot}
-                  style={{ width: WIDTH_DOT_PX[name], height: WIDTH_DOT_PX[name], background: color }}
+                  style={{
+                    width: WIDTH_DOT_PX[name],
+                    height: WIDTH_DOT_PX[name],
+                    background: color,
+                  }}
                 />
               </button>
             ))}
           </div>
+        </>
+      )}
 
+      {tool !== 'none' && (
+        <>
           <span className={styles.divider} role="separator" />
-
-          <button className={`lk-button ${styles.toolButton}`} onClick={onUndo} title="Undo my last stroke">
+          <button
+            className={`lk-button ${styles.toolButton}`}
+            onClick={onUndo}
+            title="Undo my last stroke (Cmd/Ctrl-Z)"
+          >
             Undo
           </button>
           <button
