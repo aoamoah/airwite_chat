@@ -127,6 +127,8 @@ Do not blindly follow stale instructions.
 
 # 2. CURRENT KNOWN PROJECT STATE
 
+Last reviewed: 2026-08-13.
+
 The following features and decisions are currently known.
 
 ## Implemented
@@ -162,7 +164,39 @@ For now:
 - keep AirWrite behind an administrator-controlled feature flag;
 - the client should not see AirWrite configuration such as frame windows, model settings, GPU configuration, inference settings, or debugging details.
 
-AirWrite can be revisited later.
+AirWrite is now behind the `airwrite` feature flag and is off by default. When
+the flag is off the control is not mounted at all, so no model manifest,
+MediaPipe runtime, or ONNX session is ever fetched. Its technical readout sits
+behind the AirWrite diagnostics flag and is hidden from ordinary participants.
+
+The remaining GPU work can be revisited later.
+
+### Administration
+
+Implemented. `/admin` and `/admin/login`, protected server-side by a session
+check in each page and route handler rather than by middleware.
+
+- Administrator records and sessions are in PostgreSQL, via Prisma.
+- Passwords are hashed with Argon2id (`@node-rs/argon2`).
+- Sessions are opaque random tokens in an HTTP-only cookie. The database stores
+  only a SHA-256 digest of the token, so a leaked table cannot be replayed, and
+  there is no signing secret to manage.
+- `pnpm admin:create` creates or resets an administrator account.
+- The login attempt throttle lives in process memory and is therefore
+  per-instance. Move it into PostgreSQL before running more than one instance.
+
+### Feature configuration
+
+Implemented in `lib/config/`. See section 5.
+
+`DebugMode`, the Shift+D LiveKit panel, used to be mounted for every
+participant; it is now gated behind the connection-statistics flag.
+
+### Branding
+
+The rebrand to **yɛhyia hyia** is done: titles, metadata, icons, link preview,
+landing copy, README, and package name. Remaining LiveKit references are
+deliberate — developer-facing text, and a credit in the footer.
 
 ---
 
@@ -216,53 +250,46 @@ Avoid requiring administrators to manually edit JSON.
 
 # 5. FEATURE FLAGS AND SETTINGS
 
-Application feature settings should be persisted in a JSON configuration file unless the existing project already contains a better configuration mechanism.
+Implemented in `lib/config/`, backed by PostgreSQL rather than a JSON file.
 
-Before implementing this:
+A JSON file was built first and then replaced. The deployment target has an
+ephemeral filesystem, so a saved setting would be lost on every redeploy. The
+whole configuration is now one JSON document in a single `app_settings` row,
+which also makes a save all-or-nothing — a row per key would let a partial write
+look like a valid config with keys missing.
 
-- inspect the current configuration system;
-- reuse existing configuration patterns if appropriate;
-- do not introduce a second conflicting settings system.
-
-A possible configuration structure is:
+The stored shape is:
 
 ```json
 {
   "features": {
     "annotation": true,
-    "airwrite": false,
-    "chat": true,
-    "screenShare": true,
-    "networkIndicator": true,
-    "dataSaver": true,
-    "smartBibleProjection": false,
-    "documentProjection": false,
-    "fileHandling": false
+    "airwrite": false
   },
   "debug": {
     "enabled": false,
     "showConnectionStats": false,
-    "showDeveloperPanels": false,
     "showAirWriteDiagnostics": false
   }
 }
 ```
 
-This is an example only.
+Only flags that something actually reads are present. Keys such as `chat` and
+`screenShare` are deliberately absent: LiveKit's `VideoConference` bundles those
+controls into its own control bar, so a toggle for them would be an admin
+control that visibly does nothing. Add a key when its UI becomes gateable, not
+before.
 
-Adapt the schema to the existing project.
+Do not introduce a second, conflicting settings system.
 
 ## Important rules
 
-- Do not save admin passwords in JSON.
-- Do not save database passwords in JSON.
-- Do not save API secrets in JSON.
-- Do not expose internal configuration files to clients.
-- Validate JSON before saving.
-- Use sensible defaults if the configuration file is unavailable or invalid.
-- Prefer atomic writes when updating configuration.
-- Avoid corrupting configuration during concurrent writes.
-- Keep feature keys stable once used by the client.
+- Do not store admin passwords, database passwords, or API secrets in the settings document.
+- Do not expose the full configuration to clients.
+- Validate and normalise the document before saving; unknown keys and wrong types are dropped.
+- Use sensible defaults if the configuration is unavailable or invalid, and keep serving the last known-good document during a database outage rather than silently reconfiguring live meetings.
+- Saves run inside a transaction holding a PostgreSQL advisory lock, so two administrators saving at once cannot lose each other's changes.
+- Keep feature keys stable once used by the client. Renaming a key silently resets an administrator's saved choice to the default.
 
 ---
 
@@ -276,25 +303,23 @@ Do not hardcode PostgreSQL credentials.
 
 Use environment variables or the existing secure configuration mechanism.
 
-Example environment variables may include:
+Required environment variable:
 
 ```env
 DATABASE_URL=
-ADMIN_SESSION_SECRET=
 ```
 
-Adapt this to the project's existing environment setup.
+`ADMIN_SESSION_SECRET` is **not** used. Sessions are opaque database-backed
+tokens rather than signed cookies, so there is no signing key to keep. Do not
+reintroduce one.
 
 ## Credential rules
 
 Admin passwords must NEVER be stored as plain text.
 
-Use a secure password hashing algorithm supported by the current stack, such as:
-
-- Argon2
-- bcrypt
-
-Prefer the existing authentication/security library if one already exists.
+Argon2id is in use, via `@node-rs/argon2`, at the OWASP baseline of 19 MiB
+memory, two passes, one lane. The parameters are recorded inside each encoded
+hash, so raising them later does not invalidate existing passwords.
 
 A minimal administrator entity may contain:
 
@@ -390,16 +415,16 @@ The administrator decides which optional features are available.
 
 Client-facing components should read normalized application settings.
 
-Example concept:
+The implemented flow:
 
 ```text
 Admin toggles Annotation ON
         ↓
-settings.json updated
+app_settings row updated (PUT /api/admin/settings)
         ↓
-application loads settings
+server component reads the config
         ↓
-client receives safe public feature configuration
+client receives only the public feature configuration
         ↓
 Annotation button appears
 ```
@@ -848,42 +873,50 @@ The short-term objective is a functional, deployable lightweight product.
 
 Unless the user explicitly changes priorities, prefer this order:
 
-## Priority 1 — Stability
+## Priority 1 — Stability — holding
 
 - Existing meeting functionality must work.
 - Audio/video must remain functional.
 - Annotation must remain functional.
 
-## Priority 2 — Admin system
+## Priority 2 — Admin system — done
 
 - Admin login
 - PostgreSQL admin credentials
 - Protected admin routes
 - Admin feature toggles
 
-## Priority 3 — Configuration
+## Priority 3 — Configuration — done
 
 - Persist application feature settings
 - Load feature settings safely
 - Provide public feature configuration
 - Make disabled features disappear cleanly
 
-## Priority 4 — Lightweight client experience
+## Priority 4 — Lightweight client experience — partly done
 
-- Remove/hide technical controls
-- Mobile-friendly UI
-- Simple controls
-- Avoid unnecessary resource loading
+- Remove/hide technical controls — done: the AirWrite readout and the LiveKit
+  debug panel are both behind admin flags.
+- Avoid unnecessary resource loading — done for AirWrite.
+- Mobile-friendly UI — **not yet audited on real devices.**
+- Simple controls — not yet reviewed.
 
-## Priority 5 — Africa-focused network features
+## Priority 5 — Africa-focused network features — not started
 
 - Data Saver
 - network quality
 - weak-connection handling
 
+This is the next substantial block of work, and the one the product exists for.
+LiveKit already provides most of the machinery — adaptive stream and dynacast
+are on, and connection quality is observable — so the open questions are product
+decisions: what Data Saver switches off, what a participant sees as their
+connection degrades, and whether video is sacrificed before audio.
+
 ## Priority 6 — Deferred/experimental functionality
 
-- AirWrite GPU work
+- AirWrite GPU work. Now safe to revisit: it is behind a flag and cannot break a
+  meeting. Still blocked on the browser/GPU question, not on this codebase.
 
 ## Priority 7 — Future extensions
 
@@ -1010,6 +1043,19 @@ The next major milestone should be considered successful when:
 12. The application remains mobile-friendly.
 13. The application remains deployable.
 14. No credentials or secrets are committed to source control.
+
+## Status as of 2026-08-13
+
+Points 1–11 and 14 are met and were verified end to end against the real
+database and a production build.
+
+Point 12 (mobile-friendly) has **not** been audited on real devices since the
+admin UI was added.
+
+Point 13 (deployable) is **untested on the target host**. Before a deploy:
+`DATABASE_URL` and `NEXT_PUBLIC_SITE_URL` must be set there, `pnpm db:deploy`
+must run as part of the release, and `pnpm admin:create` must be run once to
+seed an administrator.
 
 ---
 

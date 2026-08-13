@@ -23,6 +23,37 @@ export type Surface = {
 
 const VIDEO_SELECTOR = 'video.lk-participant-media-video';
 
+type Owner = Omit<Surface, 'box' | 'frame' | 'mirrored'>;
+
+/**
+ * Maps the MediaStreamTrack id of every drawable publication to its owner.
+ *
+ * Built fresh at measure time rather than cached. Restarting a camera — which
+ * both a resolution change and a device switch do — swaps the underlying
+ * MediaStreamTrack while keeping the same publication, so nothing re-renders
+ * and anything held against the old id quietly stops matching. The symptom is
+ * every board vanishing at once until the track is republished.
+ */
+function buildOwners(trackRefs: ReturnType<typeof useTracks>): Map<string, Owner> {
+  const map = new Map<string, Owner>();
+  for (const ref of trackRefs) {
+    const mediaTrack = ref.publication?.track?.mediaStreamTrack;
+    if (!mediaTrack || !ref.publication) continue;
+    // A muted camera keeps its publication and its element; the tile just shows
+    // a placeholder. There is no picture to draw on, so it is not a board.
+    if (ref.publication.isMuted) continue;
+    const isScreen = ref.source === Track.Source.ScreenShare;
+    const who = ref.participant.name || ref.participant.identity;
+    map.set(mediaTrack.id, {
+      id: isScreen ? `screen:${ref.participant.identity}` : `camera:${ref.participant.identity}`,
+      kind: isScreen ? 'screen' : 'camera',
+      label: isScreen ? 'the shared screen' : who,
+      trackSid: ref.publication.trackSid,
+    });
+  }
+  return map;
+}
+
 function surfaceKey(surface: Surface): string {
   const { box, frame } = surface;
   return [
@@ -58,25 +89,14 @@ export function useAnnotationSurfaces(): Surface[] {
   const trackRefs = useTracks([Track.Source.Camera, Track.Source.ScreenShare]);
   const [surfaces, setSurfaces] = React.useState<Surface[]>([]);
 
-  const owners = React.useMemo(() => {
-    const map = new Map<string, Omit<Surface, 'box' | 'frame' | 'mirrored'>>();
-    for (const ref of trackRefs) {
-      const mediaTrack = ref.publication?.track?.mediaStreamTrack;
-      if (!mediaTrack || !ref.publication) continue;
-      const isScreen = ref.source === Track.Source.ScreenShare;
-      const who = ref.participant.name || ref.participant.identity;
-      map.set(mediaTrack.id, {
-        id: isScreen ? `screen:${ref.participant.identity}` : `camera:${ref.participant.identity}`,
-        kind: isScreen ? 'screen' : 'camera',
-        label: isScreen ? 'the shared screen' : who,
-        trackSid: ref.publication.trackSid,
-      });
-    }
-    return map;
-  }, [trackRefs]);
+  const trackRefsRef = React.useRef(trackRefs);
+  trackRefsRef.current = trackRefs;
 
-  const ownersRef = React.useRef(owners);
-  ownersRef.current = owners;
+  // useTracks hands back a new array every render, so the observers below are
+  // rebuilt on a description of the track set rather than on its identity.
+  const trackSignature = trackRefs
+    .map((ref) => `${ref.participant.identity}:${ref.source}:${ref.publication?.trackSid ?? ''}`)
+    .join('|');
 
   React.useEffect(() => {
     let frame = 0;
@@ -87,6 +107,8 @@ export function useAnnotationSurfaces(): Surface[] {
       frame = 0;
       const next: Surface[] = [];
       const seen = new Set<HTMLVideoElement>();
+      // Read the current tracks, not the ones present when this effect ran.
+      const owners = buildOwners(trackRefsRef.current);
 
       for (const video of document.querySelectorAll<HTMLVideoElement>(VIDEO_SELECTOR)) {
         seen.add(video);
@@ -100,7 +122,7 @@ export function useAnnotationSurfaces(): Surface[] {
         const stream = video.srcObject;
         if (!(stream instanceof MediaStream)) continue;
         const [mediaTrack] = stream.getVideoTracks();
-        const owner = mediaTrack && ownersRef.current.get(mediaTrack.id);
+        const owner = mediaTrack && owners.get(mediaTrack.id);
         if (!owner) continue;
 
         const geometry = measureVideo(video);
@@ -144,7 +166,7 @@ export function useAnnotationSurfaces(): Surface[] {
       window.removeEventListener('resize', schedule);
       document.removeEventListener('scroll', schedule, true);
     };
-  }, [owners]);
+  }, [trackSignature]);
 
   return surfaces;
 }

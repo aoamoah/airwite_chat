@@ -22,6 +22,16 @@ const FEATURE_ROWS: Row<keyof FeatureConfig>[] = [
     label: 'AirWrite',
     hint: 'Experimental. Draw with your hand in front of the camera. Needs a capable device, and is not required for a meeting to work.',
   },
+  {
+    key: 'dataSaver',
+    label: 'Data Saver',
+    hint: 'Lets participants choose Low data or Audio only, and steps video down automatically when a connection cannot keep up.',
+  },
+  {
+    key: 'networkIndicator',
+    label: 'Connection warnings',
+    hint: 'Shows a short message when a participant’s connection is weak or dropping. Hidden while the connection is fine.',
+  },
 ];
 
 const DEBUG_ROWS: Row<keyof DebugConfig>[] = [

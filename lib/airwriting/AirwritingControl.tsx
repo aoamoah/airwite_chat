@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import styles from '../../styles/Airwriting.module.css';
+import { DragHandle } from '../ui/DragHandle';
+import { useDraggable } from '../ui/useDraggable';
+import { usePanel } from '../ui/PanelStack';
 import { loadModelManifest, type ModelInfo } from './classifier';
 import { SAMPLE_FPS } from './useHandTracker';
 import { useAirwriting, type AirwritingPoint } from './useAirwriting';
@@ -44,6 +47,7 @@ export function AirwritingControl({
   diagnostics = false,
 }: Props) {
   const [enabled, setEnabled] = React.useState(false);
+  const drag = useDraggable('yehyia:airwrite-panel');
   const [models, setModels] = React.useState<ModelInfo[]>([]);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [manifestError, setManifestError] = React.useState<string | null>(null);
@@ -77,6 +81,20 @@ export function AirwritingControl({
   React.useEffect(() => {
     if (!available) setEnabled(false);
   }, [available]);
+
+  // Air-writing owns the camera pipeline while it runs, so losing the single
+  // open slot to another panel has to actually stop it, not just hide it.
+  const panel = usePanel('airwrite');
+  const { isOpen, open, close } = panel;
+  React.useEffect(() => {
+    if (!isOpen && enabled) setEnabled(false);
+  }, [isOpen, enabled]);
+
+  const setRunning = (next: boolean) => {
+    setEnabled(next);
+    if (next) open();
+    else close();
+  };
 
   const surfaceRef = React.useRef(surfaceId);
   surfaceRef.current = surfaceId;
@@ -113,10 +131,12 @@ export function AirwritingControl({
   const latencyMs = model ? Math.round((model.windowSize / SAMPLE_FPS) * 1000) : 0;
 
   return (
-    <div className={styles.panel} data-lk-theme="default">
+    <div className={styles.panel} data-lk-theme="default" ref={drag.ref} style={drag.style}>
+      <DragHandle drag={drag} label="the air-write panel" />
+
       <button
         className={`lk-button ${styles.toggle}`}
-        onClick={() => setEnabled((value) => !value)}
+        onClick={() => setRunning(!enabled)}
         disabled={!available}
         aria-pressed={enabled}
         data-lk-active={enabled}

@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import styles from '../../styles/Annotations.module.css';
+import { DragHandle } from '../ui/DragHandle';
+import { useDraggable } from '../ui/useDraggable';
 import { ANNOTATION_PALETTE } from './colors';
 import { STROKE_WIDTHS, type AnnotationTool, type StrokeWidthName } from './types';
 
@@ -70,9 +72,12 @@ export function AnnotationToolbar({
   clearTarget,
 }: Props) {
   const toggle = (next: AnnotationTool) => onToolChange(tool === next ? 'none' : next);
+  const drag = useDraggable('yehyia:annotation-toolbar');
 
   return (
-    <div className={styles.toolbar} data-lk-theme="default">
+    <div className={styles.toolbar} data-lk-theme="default" ref={drag.ref} style={drag.style}>
+      <DragHandle drag={drag} label="the annotation toolbar" />
+
       <button
         className={`lk-button ${styles.toolButton}`}
         onClick={() => toggle('pen')}

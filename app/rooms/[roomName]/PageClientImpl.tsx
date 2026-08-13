@@ -32,6 +32,11 @@ import { useLowCPUOptimizer } from '@/lib/usePerfomanceOptimiser';
 import { AnnotationLayer } from '@/lib/annotations/AnnotationLayer';
 import { FeatureProvider, useFeatures } from '@/lib/config/FeatureFlags';
 import type { PublicConfig } from '@/lib/config/types';
+import { ConnectionNotice } from '@/lib/network/ConnectionNotice';
+import { DataModeControl } from '@/lib/network/DataModeControl';
+import { DataSaver } from '@/lib/network/DataSaver';
+import { useDataMode, type DataModeState } from '@/lib/network/useDataMode';
+import { PanelProvider } from '@/lib/ui/PanelStack';
 
 const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
@@ -73,21 +78,40 @@ export function PageClientImpl(props: {
   }, []);
   const handlePreJoinError = React.useCallback((e: any) => console.error(e), []);
 
+  // Held here rather than inside the meeting so the choice is made before any
+  // video starts, which is where the data is actually saved.
+  const dataMode = useDataMode();
+  const dataSaverEnabled = props.featureConfig.features.dataSaver;
+
   return (
     <FeatureProvider config={props.featureConfig}>
       <main data-lk-theme="default" style={{ height: '100%' }}>
         {connectionDetails === undefined || preJoinChoices === undefined ? (
-          <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
+          <div
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              alignContent: 'center',
+              gap: '1.5rem',
+              height: '100%',
+            }}
+          >
             <PreJoin
               defaults={preJoinDefaults}
               onSubmit={handlePreJoinSubmit}
               onError={handlePreJoinError}
             />
+            {dataSaverEnabled && (
+              <div style={{ width: 'min(23rem, calc(100vw - 2rem))' }}>
+                <DataModeControl mode={dataMode.mode} onChange={dataMode.choose} />
+              </div>
+            )}
           </div>
         ) : (
           <VideoConferenceComponent
             connectionDetails={connectionDetails}
             userChoices={preJoinChoices}
+            dataMode={dataMode}
             options={{
               codec: props.codec,
               hq: props.hq,
@@ -103,6 +127,7 @@ export function PageClientImpl(props: {
 function VideoConferenceComponent(props: {
   userChoices: LocalUserChoices;
   connectionDetails: ConnectionDetails;
+  dataMode: DataModeState;
   options: {
     hq: boolean;
     codec: VideoCodec;
@@ -115,20 +140,42 @@ function VideoConferenceComponent(props: {
 
   const [e2eeSetupComplete, setE2eeSetupComplete] = React.useState(false);
 
+  /**
+   * The data mode as it stood when this meeting was joined.
+   *
+   * Capture settings are fixed when the Room is constructed and the connect
+   * effect must not re-run, so both read this rather than the live value. A
+   * mode changed mid-meeting is applied by useApplyDataMode instead.
+   */
+  const joinMode = React.useRef(props.dataMode.mode).current;
+
   const roomOptions = React.useMemo((): RoomOptions => {
     let videoCodec: VideoCodec | undefined = props.options.codec ? props.options.codec : 'vp9';
     if (e2eeEnabled && (videoCodec === 'av1' || videoCodec === 'vp9')) {
       videoCodec = undefined;
     }
+    // Capturing small in the first place is what saves data — a stream that is
+    // never encoded at 720p costs nothing to not send.
+    const lowData = joinMode !== 'full';
     const videoCaptureDefaults: VideoCaptureOptions = {
       deviceId: props.userChoices.videoDeviceId ?? undefined,
-      resolution: props.options.hq ? VideoPresets.h2160 : VideoPresets.h720,
+      resolution: lowData
+        ? VideoPresets.h180
+        : props.options.hq
+          ? VideoPresets.h2160
+          : VideoPresets.h720,
     };
     const publishDefaults: TrackPublishDefaults = {
       dtx: false,
-      videoSimulcastLayers: props.options.hq
-        ? [VideoPresets.h1080, VideoPresets.h720]
-        : [VideoPresets.h540, VideoPresets.h216],
+      // Simulcast publishes several encodings of the same camera at once. That
+      // is the right trade when upstream bandwidth is plentiful, and precisely
+      // the wrong one here, so low-data sends a single small stream.
+      simulcast: !lowData,
+      videoSimulcastLayers: lowData
+        ? undefined
+        : props.options.hq
+          ? [VideoPresets.h1080, VideoPresets.h720]
+          : [VideoPresets.h540, VideoPresets.h216],
       red: !e2eeEnabled,
       videoCodec,
     };
@@ -190,7 +237,9 @@ function VideoConferenceComponent(props: {
         .catch((error) => {
           handleError(error);
         });
-      if (props.userChoices.videoEnabled) {
+      // Audio only means the camera never starts, rather than starting and
+      // being switched off a moment later.
+      if (props.userChoices.videoEnabled && joinMode !== 'audio-only') {
         room.localParticipant.setCameraEnabled(true).catch((error) => {
           handleError(error);
         });
@@ -233,16 +282,21 @@ function VideoConferenceComponent(props: {
   return (
     <div className="lk-room-container">
       <RoomContext.Provider value={room}>
-        <KeyboardShortcuts />
-        <VideoConference
-          chatMessageFormatter={formatChatMessageLinks}
-          SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
-        />
-        {features.annotation && <AnnotationLayer />}
-        {/* Not mounted otherwise: it raises the client log level, exposes the
-            room on `window`, and re-renders every second for every participant. */}
-        {diagnostics.connectionStats && <DebugMode />}
-        <RecordingIndicator />
+        {/* Every floating panel shares one open slot, so none can cover another. */}
+        <PanelProvider>
+          <KeyboardShortcuts />
+          <VideoConference
+            chatMessageFormatter={formatChatMessageLinks}
+            SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
+          />
+          {features.dataSaver && <DataSaver state={props.dataMode} />}
+          {features.networkIndicator && <ConnectionNotice />}
+          {features.annotation && <AnnotationLayer />}
+          {/* Not mounted otherwise: it raises the client log level, exposes the
+              room on `window`, and re-renders every second for every participant. */}
+          {diagnostics.connectionStats && <DebugMode />}
+          <RecordingIndicator />
+        </PanelProvider>
       </RoomContext.Provider>
     </div>
   );

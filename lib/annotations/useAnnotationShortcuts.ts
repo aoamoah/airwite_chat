@@ -18,7 +18,11 @@ type Options = {
   /** Shortcuts stay dormant unless a screenshare is on the call. */
   enabled: boolean;
   tool: AnnotationTool;
-  setTool: React.Dispatch<React.SetStateAction<AnnotationTool>>;
+  /**
+   * Takes a value rather than an updater: choosing a tool also has to claim the
+   * single open-panel slot, which a plain state setter cannot do.
+   */
+  setTool: (tool: AnnotationTool) => void;
   onUndo: () => void;
 };
 
@@ -53,11 +57,11 @@ export function useAnnotationShortcuts({ enabled, tool, setTool, onUndo }: Optio
       switch (event.key.toLowerCase()) {
         case 'p':
           event.preventDefault();
-          setTool((current) => (current === 'pen' ? 'none' : 'pen'));
+          setTool(tool === 'pen' ? 'none' : 'pen');
           break;
         case 'e':
           event.preventDefault();
-          setTool((current) => (current === 'eraser' ? 'none' : 'eraser'));
+          setTool(tool === 'eraser' ? 'none' : 'eraser');
           break;
         case 'escape':
           setTool('none');

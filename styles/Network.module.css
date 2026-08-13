@@ -1,0 +1,161 @@
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.segments {
+  display: flex;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+}
+
+.segment {
+  flex: 1 1 0;
+  padding: 0.4375rem 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: inherit;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.segment:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.segment[aria-pressed='true'] {
+  background: var(--yh-accent);
+  color: #111;
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  opacity: 0.6;
+  min-height: 1.4em;
+}
+
+/* In-meeting placement: top-left, clear of the bottom cluster that the
+   annotation toolbar and the AirWrite panel already share.
+   Fixed, like those two, so it is positioned against the viewport rather than
+   whichever ancestor happens to be positioned. z-index matches the toolbars:
+   an annotation surface is drawn over each video tile and, being later in the
+   DOM, would bury this at equal stacking. */
+.floating {
+  position: fixed;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.375rem;
+  background: rgba(17, 17, 17, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.625rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  max-width: min(17rem, calc(100vw - 1.5rem));
+}
+
+.floatingHeader {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  padding: 0.3125rem 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.summary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.summaryDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--yh-accent-soft);
+}
+
+.summaryDot[data-lk-mode='low'] {
+  background: var(--yh-accent);
+}
+
+.summaryDot[data-lk-mode='audio-only'] {
+  background: #ff6b6b;
+}
+
+.expanded {
+  padding: 0 0.125rem 0.125rem;
+}
+
+.notice {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.8125rem;
+  background: rgba(17, 17, 17, 0.9);
+  border: 1px solid rgba(242, 177, 53, 0.5);
+  border-radius: 999px;
+  max-width: calc(100vw - 1.5rem);
+}
+
+.noticeDot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--yh-accent);
+}
+
+.noticeLost .noticeDot {
+  background: #ff6b6b;
+}
+
+.noticeLost {
+  border-color: rgba(255, 107, 107, 0.55);
+}
+
+@media (max-width: 600px) {
+  .floating {
+    top: 0.5rem;
+    left: 0.5rem;
+    /* Collapsed it is only a pill, so it no longer needs the full width. */
+    max-width: calc(100vw - 1rem);
+  }
+
+  /* Clear of the pill, which owns the top-left corner. */
+  .notice {
+    top: 3.25rem;
+  }
+}

@@ -16,7 +16,15 @@ describe('normalizeConfig', () => {
 
   it('keeps valid values', () => {
     const config = normalizeConfig({ features: { annotation: false, airwrite: true } });
-    expect(config.features).toEqual({ annotation: false, airwrite: true });
+    expect(config.features).toMatchObject({ annotation: false, airwrite: true });
+  });
+
+  it('supplies defaults for keys the stored document does not mention', () => {
+    const config = normalizeConfig({ features: { annotation: false } });
+    // Every known key is always present, whatever was on record.
+    expect(Object.keys(config.features).sort()).toEqual(
+      Object.keys(DEFAULT_CONFIG.features).sort(),
+    );
   });
 
   it('falls back per field, so one bad value does not lose the others', () => {
@@ -71,7 +79,7 @@ describe('mergeConfig', () => {
 
   it('leaves untouched keys within a section alone', () => {
     const next = mergeConfig(stored, { features: { airwrite: false } });
-    expect(next.features).toEqual({ annotation: true, airwrite: false });
+    expect(next.features).toEqual({ ...stored.features, airwrite: false });
   });
 
   it('is a no-op for an empty update', () => {
@@ -92,7 +100,7 @@ describe('mergeConfig', () => {
 describe('toPublicConfig', () => {
   it('does not leak debug settings', () => {
     const publicConfig = toPublicConfig({
-      features: { annotation: true, airwrite: true },
+      features: { ...DEFAULT_CONFIG.features, annotation: true, airwrite: true },
       debug: { enabled: true, showConnectionStats: true, showAirWriteDiagnostics: false },
     });
     expect(publicConfig).not.toHaveProperty('debug');

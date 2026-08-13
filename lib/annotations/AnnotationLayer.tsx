@@ -12,6 +12,7 @@ import { useAnnotationSurfaces, type Surface } from './useAnnotationSurfaces';
 import { AirwritingControl } from '../airwriting/AirwritingControl';
 import type { AirwritingPoint } from '../airwriting/useAirwriting';
 import { useFeatures } from '../config/FeatureFlags';
+import { usePanel } from '../ui/PanelStack';
 
 /**
  * Drop-in annotation layer for a room. Puts a board over every video on screen —
@@ -57,6 +58,25 @@ export function AnnotationLayer() {
     if (!canAnnotate) setTool('none');
   }, [canAnnotate]);
 
+  /**
+   * A chosen tool is what makes this toolbar expand, so the tool is what claims
+   * the single open slot. Losing the slot puts the pen down.
+   */
+  const panel = usePanel('annotation');
+  const { isOpen, open: claimPanel, close: releasePanel } = panel;
+  React.useEffect(() => {
+    if (!isOpen && tool !== 'none') setTool('none');
+  }, [isOpen, tool]);
+
+  const handleToolChange = React.useCallback(
+    (next: AnnotationTool) => {
+      setTool(next);
+      if (next === 'none') releasePanel();
+      else claimPanel();
+    },
+    [claimPanel, releasePanel],
+  );
+
   // Keep the active board in step with the live geometry, and drop it when its
   // video goes away.
   React.useEffect(() => {
@@ -66,7 +86,14 @@ export function AnnotationLayer() {
     });
   }, [surfaces]);
 
-  useAnnotationShortcuts({ enabled: canAnnotate, tool, setTool, onUndo: annotations.undoLast });
+  // Routed through the same handler as the buttons, so the P and E shortcuts
+  // also claim the open slot rather than expanding a second panel silently.
+  useAnnotationShortcuts({
+    enabled: canAnnotate,
+    tool,
+    setTool: handleToolChange,
+    onUndo: annotations.undoLast,
+  });
 
   const { beginStroke, clearSurface, extendStroke, endStroke } = annotations;
   const handleBegin = React.useCallback(
@@ -123,7 +150,7 @@ export function AnnotationLayer() {
       )}
       <AnnotationToolbar
         tool={tool}
-        onToolChange={setTool}
+        onToolChange={handleToolChange}
         color={color}
         onColorChange={setColor}
         widthName={widthName}

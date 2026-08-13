@@ -12,6 +12,10 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
     // on GPU behaviour that varies by browser, so nothing about a normal
     // meeting may depend on it.
     airwrite: false,
+    // On by default: the whole point of the product is holding up on a weak
+    // connection, and both of these cost nothing when the network is fine.
+    dataSaver: true,
+    networkIndicator: true,
   }),
   debug: Object.freeze({
     enabled: false,
