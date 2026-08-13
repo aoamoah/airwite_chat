@@ -11,6 +11,7 @@ import { transcribe, TranscriptionError } from './transcribe';
 import { CAPTION_LANGUAGE_LABELS, type CaptionLanguage } from './types';
 import { useCaptions } from './useCaptions';
 import { useUtteranceCapture, type Utterance } from './useUtteranceCapture';
+import { encodeWav } from './wav';
 
 const LANGUAGES: CaptionLanguage[] = ['twi', 'eng'];
 
@@ -22,7 +23,21 @@ const LANGUAGES: CaptionLanguage[] = ['twi', 'eng'];
  * costing a call each. Dropping the newest is better than showing text from a
  * minute ago.
  */
-const MAX_IN_FLIGHT = 2;
+const MAX_IN_FLIGHT = 3;
+
+/**
+ * The first call of a session took several seconds against a service that then
+ * settled to about one. Sending a scrap of silence when captions are switched
+ * on pays that cost while nobody is waiting, so the first real sentence is not
+ * the slow one.
+ */
+async function warmUp(participantToken: string, language: CaptionLanguage): Promise<void> {
+  try {
+    await transcribe(encodeWav(new Float32Array(4_800)), language, participantToken);
+  } catch {
+    // Nothing depends on this; a real utterance will report any real problem.
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -92,8 +107,12 @@ export function Captions({ participantToken }: { participantToken: string }) {
   const setRunning = (next: boolean) => {
     setEnabled(next);
     setError(null);
-    if (next) open();
-    else close();
+    if (next) {
+      open();
+      void warmUp(participantToken, language);
+    } else {
+      close();
+    }
   };
 
   return (

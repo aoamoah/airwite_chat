@@ -32,9 +32,12 @@ export type SegmenterOptions = {
 
 export const DEFAULT_SEGMENTER: Required<SegmenterOptions> = {
   speechThreshold: 0.02,
-  hangoverMs: 700,
+  // Every millisecond here is added directly to how far behind a caption
+  // lands, so this is as short as it can be without treating the pause between
+  // two clauses as the end of a sentence.
+  hangoverMs: 500,
   minUtteranceMs: 400,
-  maxUtteranceMs: 6_000,
+  maxUtteranceMs: 4_500,
 };
 
 export type SegmentEvent =
