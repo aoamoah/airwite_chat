@@ -15,6 +15,11 @@ type Props = {
   onBegin: (surfaceId: string, point: AirwritingPoint) => void;
   onExtend: (point: AirwritingPoint) => void;
   onEnd: () => void;
+  /**
+   * Show the technical readout. Off for ordinary participants, who get a bare
+   * toggle; on when an administrator has enabled AirWrite diagnostics.
+   */
+  diagnostics?: boolean;
 };
 
 function statusLabel(status: string, error: string | null): string {
@@ -23,14 +28,21 @@ function statusLabel(status: string, error: string | null): string {
 }
 
 /**
- * Toggle and live readout for air-writing.
+ * Toggle for air-writing, with an optional live readout.
  *
  * The probability bar is not decoration: the model is a black box whose only
  * observable output is this number, and seeing it move with your hand is the
  * quickest way to confirm the feature pipeline matches training and to pick
- * sensible gate thresholds.
+ * sensible gate thresholds. It is a debugging instrument, though, so it stays
+ * behind `diagnostics` — a participant in a meeting sees only the toggle.
  */
-export function AirwritingControl({ surfaceId, onBegin, onExtend, onEnd }: Props) {
+export function AirwritingControl({
+  surfaceId,
+  onBegin,
+  onExtend,
+  onEnd,
+  diagnostics = false,
+}: Props) {
   const [enabled, setEnabled] = React.useState(false);
   const [models, setModels] = React.useState<ModelInfo[]>([]);
   const [selected, setSelected] = React.useState<string | null>(null);
@@ -119,23 +131,25 @@ export function AirwritingControl({ surfaceId, onBegin, onExtend, onEnd }: Props
         Air-write
       </button>
 
-      <label className={styles.windowPicker}>
-        <span className={styles.dim}>model</span>
-        <select
-          value={selected ?? ''}
-          onChange={(event) => setSelected(event.target.value)}
-          disabled={enabled || models.length === 0}
-          title="Frames per decision. Fewer reacts sooner; more sees a longer gesture."
-        >
-          {models.map((entry) => (
-            <option key={entry.file} value={entry.file}>
-              {entry.windowSize} frames ({Math.round((entry.windowSize / SAMPLE_FPS) * 1000)}ms)
-            </option>
-          ))}
-        </select>
-      </label>
+      {diagnostics && (
+        <label className={styles.windowPicker}>
+          <span className={styles.dim}>model</span>
+          <select
+            value={selected ?? ''}
+            onChange={(event) => setSelected(event.target.value)}
+            disabled={enabled || models.length === 0}
+            title="Frames per decision. Fewer reacts sooner; more sees a longer gesture."
+          >
+            {models.map((entry) => (
+              <option key={entry.file} value={entry.file}>
+                {entry.windowSize} frames ({Math.round((entry.windowSize / SAMPLE_FPS) * 1000)}ms)
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
-      {enabled && (
+      {enabled && diagnostics && (
         <div className={styles.readout}>
           <span className={styles.dim}>{statusLabel(status, error)}</span>
 
@@ -176,7 +190,13 @@ export function AirwritingControl({ surfaceId, onBegin, onExtend, onEnd }: Props
         </div>
       )}
 
-      {(error || manifestError) && <span className={styles.error}>{error ?? manifestError}</span>}
+      {(error || manifestError) &&
+        (diagnostics ? (
+          <span className={styles.error}>{error ?? manifestError}</span>
+        ) : (
+          // A participant gets the fact, not the failure. The meeting carries on.
+          <span className={styles.dim}>Air-write unavailable</span>
+        ))}
     </div>
   );
 }

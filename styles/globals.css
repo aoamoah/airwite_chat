@@ -1,3 +1,11 @@
+:root {
+  /* Brand palette. The two marks meeting: gold and teal. */
+  --yh-accent: #f2b135;
+  --yh-accent-soft: #27b0a0;
+  --yh-link: #f2b135;
+  --yh-link-underline: rgba(242, 177, 53, 0.45);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -25,10 +33,22 @@ body {
   padding-inline: 2rem;
 }
 
-.header > img {
-  display: block;
-  margin: auto;
-  max-width: 100%;
+.wordmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+}
+
+.wordmark > h1 {
+  margin: 0;
+  /* The brand is always set lowercase, including the ɛ. */
+  text-transform: none;
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #fff;
 }
 
 .header > h2 {
@@ -52,14 +72,14 @@ footer {
 
 footer a,
 h2 a {
-  color: #ff6352;
-  text-decoration-color: #a33529;
+  color: var(--yh-link);
+  text-decoration-color: var(--yh-link-underline);
   text-underline-offset: 0.125em;
 }
 
 footer a:hover,
 h2 a {
-  text-decoration-color: #ff6352;
+  text-decoration-color: var(--yh-link);
 }
 
 h2 a {

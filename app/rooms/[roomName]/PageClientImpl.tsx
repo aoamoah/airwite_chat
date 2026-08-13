@@ -30,6 +30,8 @@ import { useRouter } from 'next/navigation';
 import { useSetupE2EE } from '@/lib/useSetupE2EE';
 import { useLowCPUOptimizer } from '@/lib/usePerfomanceOptimiser';
 import { AnnotationLayer } from '@/lib/annotations/AnnotationLayer';
+import { FeatureProvider, useFeatures } from '@/lib/config/FeatureFlags';
+import type { PublicConfig } from '@/lib/config/types';
 
 const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
@@ -41,6 +43,7 @@ export function PageClientImpl(props: {
   hq: boolean;
   codec: VideoCodec;
   singlePeerConnection: boolean;
+  featureConfig: PublicConfig;
 }) {
   const [preJoinChoices, setPreJoinChoices] = React.useState<LocalUserChoices | undefined>(
     undefined,
@@ -71,27 +74,29 @@ export function PageClientImpl(props: {
   const handlePreJoinError = React.useCallback((e: any) => console.error(e), []);
 
   return (
-    <main data-lk-theme="default" style={{ height: '100%' }}>
-      {connectionDetails === undefined || preJoinChoices === undefined ? (
-        <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-          <PreJoin
-            defaults={preJoinDefaults}
-            onSubmit={handlePreJoinSubmit}
-            onError={handlePreJoinError}
+    <FeatureProvider config={props.featureConfig}>
+      <main data-lk-theme="default" style={{ height: '100%' }}>
+        {connectionDetails === undefined || preJoinChoices === undefined ? (
+          <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
+            <PreJoin
+              defaults={preJoinDefaults}
+              onSubmit={handlePreJoinSubmit}
+              onError={handlePreJoinError}
+            />
+          </div>
+        ) : (
+          <VideoConferenceComponent
+            connectionDetails={connectionDetails}
+            userChoices={preJoinChoices}
+            options={{
+              codec: props.codec,
+              hq: props.hq,
+              singlePeerConnection: props.singlePeerConnection,
+            }}
           />
-        </div>
-      ) : (
-        <VideoConferenceComponent
-          connectionDetails={connectionDetails}
-          userChoices={preJoinChoices}
-          options={{
-            codec: props.codec,
-            hq: props.hq,
-            singlePeerConnection: props.singlePeerConnection,
-          }}
-        />
-      )}
-    </main>
+        )}
+      </main>
+    </FeatureProvider>
   );
 }
 
@@ -203,6 +208,7 @@ function VideoConferenceComponent(props: {
     };
   }, [e2eeSetupComplete, room, props.connectionDetails, props.userChoices]);
 
+  const { features, diagnostics } = useFeatures();
   const lowPowerMode = useLowCPUOptimizer(room);
 
   const router = useRouter();
@@ -232,8 +238,10 @@ function VideoConferenceComponent(props: {
           chatMessageFormatter={formatChatMessageLinks}
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
         />
-        <AnnotationLayer />
-        <DebugMode />
+        {features.annotation && <AnnotationLayer />}
+        {/* Not mounted otherwise: it raises the client log level, exposes the
+            room on `window`, and re-renders every second for every participant. */}
+        {diagnostics.connectionStats && <DebugMode />}
         <RecordingIndicator />
       </RoomContext.Provider>
     </div>

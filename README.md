@@ -1,42 +1,52 @@
-<a href="https://livekit.io/">
-  <img src="./.github/assets/livekit-mark.png" alt="LiveKit logo" width="100" height="100">
-</a>
+# yɛhyia hyia
 
-# LiveKit Meet
+Lightweight video conferencing built for real conditions: unreliable connections, expensive mobile data, and phones rather than laptops.
 
-<p>
-  <a href="https://meet.livekit.io"><strong>Try the demo</strong></a>
-  •
-  <a href="https://github.com/livekit/components-js">LiveKit Components</a>
-  •
-  <a href="https://docs.livekit.io/">LiveKit Docs</a>
-  •
-  <a href="https://livekit.io/cloud">LiveKit Cloud</a>
-  •
-  <a href="https://blog.livekit.io/">Blog</a>
-</p>
+Built for students and study groups, and for churches, fellowships, and prayer groups meeting online.
 
-<br>
+The product name is always written **yɛhyia hyia** — lowercase, with `ɛ`. Where a technical constraint cannot carry that character, the internal identifier is `yehyia-hyia`.
 
-LiveKit Meet is an open source video conferencing app built on [LiveKit Components](https://github.com/livekit/components-js), [LiveKit Cloud](https://cloud.livekit.io/), and Next.js. It's been completely redesigned from the ground up using our new components library.
+## Built on LiveKit
 
-![LiveKit Meet screenshot](./.github/assets/livekit-meet.jpg)
+The conferencing layer is [LiveKit](https://livekit.io/) — this project began as a fork of [LiveKit Meet](https://github.com/livekit/meet) and continues to use [LiveKit Components](https://github.com/livekit/components-js) for media handling. LiveKit is the technical foundation; yɛhyia hyia is the product.
 
-## Tech Stack
+## Tech stack
 
-- This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
-- App is built with [@livekit/components-react](https://github.com/livekit/components-js/) library.
+- [Next.js](https://nextjs.org/) App Router, React 18, TypeScript
+- [@livekit/components-react](https://github.com/livekit/components-js/) for conferencing
+- PostgreSQL via [Prisma](https://www.prisma.io/) for administrator accounts and feature settings
+- MediaPipe and ONNX Runtime for the experimental AirWrite feature, both loaded only when it is switched on
 
-## Demo
+## Features
 
-Give it a try at https://meet.livekit.io.
+- **Annotation** — draw over a shared screen or any camera tile, synchronised across participants.
+- **AirWrite** _(experimental)_ — write in the air with your hand. Off by default; enable it in the admin area. It depends on GPU behaviour that varies by browser and is never required for a meeting to work.
+- **Admin area** — a separate `/admin` interface decides which features participants see. Technical settings live there, not in the meeting UI.
 
-## Dev Setup
+## Dev setup
 
-Steps to get a local dev setup up and running:
+1. `pnpm install`
+2. Copy `.env.example` to `.env.local` and fill in the values. `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `LIVEKIT_URL` are required for meetings; `DATABASE_URL` is required for the admin area.
+3. `pnpm db:deploy` to create the database tables.
+4. `pnpm admin:create` to create your first administrator account.
+5. `pnpm dev`, then open [http://localhost:3000](http://localhost:3000).
 
-1. Run `pnpm install` to install all dependencies.
-2. Copy `.env.example` in the project root and rename it to `.env.local`.
-3. Update the missing environment variables in the newly created `.env.local` file.
-4. Run `pnpm dev` to start the development server and visit [http://localhost:3000](http://localhost:3000) to see the result.
-5. Start development 🎉
+Sign in to the admin area at [/admin/login](http://localhost:3000/admin/login) to turn features on and off.
+
+## Scripts
+
+| Command             | What it does                                       |
+| ------------------- | -------------------------------------------------- |
+| `pnpm dev`          | Development server                                 |
+| `pnpm build`        | Production build                                   |
+| `pnpm test`         | Unit tests (no database required)                  |
+| `pnpm db:migrate`   | Create and apply a migration during development    |
+| `pnpm db:deploy`    | Apply existing migrations, for deployment          |
+| `pnpm admin:create` | Create or reset an administrator account           |
+| `pnpm setup:assets` | Stage the MediaPipe and ONNX assets AirWrite needs |
+
+## Deployment notes
+
+- Set `NEXT_PUBLIC_SITE_URL` so link previews resolve to absolute URLs.
+- Run `pnpm db:deploy` as part of the release, then `pnpm admin:create` once to seed the first administrator.
+- The login attempt throttle is held in process memory, so it is per-instance. Move it into the database before running more than one instance.

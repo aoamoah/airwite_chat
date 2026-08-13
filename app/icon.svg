@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>yɛhyia hyia</title>
+  <rect width="32" height="32" rx="7" fill="#111111" />
+  <!-- Two discs meeting: "hyia" is to meet. Kept solid so the mark still reads
+       at 16px, where outlines turn to mush. -->
+  <circle cx="12.5" cy="16" r="7.5" fill="#f2b135" />
+  <circle cx="19.5" cy="16" r="7.5" fill="#27b0a0" opacity="0.85" />
+</svg>

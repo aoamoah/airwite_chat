@@ -4,43 +4,40 @@ import '@livekit/components-styles/prefabs';
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'react-hot-toast';
 
+const DESCRIPTION =
+  'Lightweight video conferencing built for real conditions: unreliable connections, ' +
+  'expensive mobile data, and phones rather than laptops.';
+
 export const metadata: Metadata = {
+  // Needed for the generated icon and link-preview images to resolve to
+  // absolute URLs. Set NEXT_PUBLIC_SITE_URL on the deployment.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'LiveKit Meet | Conference app build with LiveKit open source',
-    template: '%s',
+    default: 'yɛhyia hyia',
+    template: '%s · yɛhyia hyia',
   },
-  description:
-    'LiveKit is an open source WebRTC project that gives you everything needed to build scalable and real-time audio and/or video experiences in your applications.',
-  twitter: {
-    creator: '@livekitted',
-    site: '@livekitted',
-    card: 'summary_large_image',
-  },
+  description: DESCRIPTION,
+  applicationName: 'yɛhyia hyia',
   openGraph: {
-    url: 'https://meet.livekit.io',
-    images: [
-      {
-        url: 'https://meet.livekit.io/images/livekit-meet-open-graph.png',
-        width: 2000,
-        height: 1000,
-        type: 'image/png',
-      },
-    ],
-    siteName: 'LiveKit Meet',
+    type: 'website',
+    siteName: 'yɛhyia hyia',
+    title: 'yɛhyia hyia',
+    description: DESCRIPTION,
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'yɛhyia hyia',
+    description: DESCRIPTION,
+  },
+  // Both icon files have to be listed by hand: given icon.svg and icon.tsx in
+  // the same segment, Next advertises only the SVG, leaving browsers that
+  // cannot read one no way to find the other.
   icons: {
-    icon: {
-      rel: 'icon',
-      url: '/favicon.ico',
-    },
-    apple: [
-      {
-        rel: 'apple-touch-icon',
-        url: '/images/livekit-apple-touch.png',
-        sizes: '180x180',
-      },
-      { rel: 'mask-icon', url: '/images/livekit-safari-pinned-tab.svg', color: '#070707' },
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon', type: 'image/png', sizes: '32x32' },
     ],
+    apple: [{ url: '/apple-icon', type: 'image/png', sizes: '180x180' }],
   },
 };
 

@@ -11,6 +11,7 @@ import { useAnnotationShortcuts } from './useAnnotationShortcuts';
 import { useAnnotationSurfaces, type Surface } from './useAnnotationSurfaces';
 import { AirwritingControl } from '../airwriting/AirwritingControl';
 import type { AirwritingPoint } from '../airwriting/useAirwriting';
+import { useFeatures } from '../config/FeatureFlags';
 
 /**
  * Drop-in annotation layer for a room. Puts a board over every video on screen —
@@ -23,6 +24,7 @@ export function AnnotationLayer() {
   const room = useRoomContext();
   const surfaces = useAnnotationSurfaces();
   const annotations = useAnnotations(room);
+  const { features, diagnostics } = useFeatures();
 
   const [tool, setTool] = React.useState<AnnotationTool>('none');
   const [color, setColor] = React.useState(() => colorForIdentity(room.localParticipant.identity));
@@ -108,12 +110,17 @@ export function AnnotationLayer() {
           onActivate={setActiveSurface}
         />
       ))}
-      <AirwritingControl
-        surfaceId={ownCameraVisible ? ownCameraSurfaceId : null}
-        onBegin={handleAirBegin}
-        onExtend={handleAirExtend}
-        onEnd={annotations.endStroke}
-      />
+      {/* Not mounted when disabled, so no model manifest, MediaPipe runtime, or
+          ONNX session is ever fetched for a meeting that will not use them. */}
+      {features.airwrite && (
+        <AirwritingControl
+          surfaceId={ownCameraVisible ? ownCameraSurfaceId : null}
+          onBegin={handleAirBegin}
+          onExtend={handleAirExtend}
+          onEnd={annotations.endStroke}
+          diagnostics={diagnostics.airwrite}
+        />
+      )}
       <AnnotationToolbar
         tool={tool}
         onToolChange={setTool}

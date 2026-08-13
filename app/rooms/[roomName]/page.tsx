@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { PageClientImpl } from './PageClientImpl';
+import { readPublicConfig } from '@/lib/config/store';
 import { isVideoCodec } from '@/lib/types';
 
 export default async function Page({
@@ -23,6 +24,8 @@ export default async function Page({
       : 'vp9';
   const hq = _searchParams.hq === 'true' ? true : false;
   const singlePC = _searchParams.singlePC !== 'false';
+  // Resolved on the server so the client only ever receives the public subset.
+  const featureConfig = await readPublicConfig();
 
   return (
     <PageClientImpl
@@ -31,6 +34,7 @@ export default async function Page({
       hq={hq}
       codec={codec}
       singlePeerConnection={singlePC}
+      featureConfig={featureConfig}
     />
   );
 }

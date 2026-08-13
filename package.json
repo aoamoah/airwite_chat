@@ -1,5 +1,5 @@
 {
-  "name": "livekit-meet",
+  "name": "yehyia-hyia",
   "version": "0.2.0",
   "private": true,
   "scripts": {
@@ -12,7 +12,10 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "format:write": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "setup:assets": "node scripts/setup-assets.mjs",
-    "postinstall": "node scripts/setup-assets.mjs"
+    "postinstall": "node scripts/setup-assets.mjs && prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "admin:create": "node --env-file-if-exists=.env.local scripts/create-admin.mjs"
   },
   "dependencies": {
     "@datadog/browser-logs": "^5.23.3",
@@ -21,10 +24,14 @@
     "@livekit/krisp-noise-filter": "0.4.3",
     "@livekit/track-processors": "^0.7.0",
     "@mediapipe/tasks-vision": "^1.0.1",
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "livekit-client": "2.20.1",
     "livekit-server-sdk": "2.17.0",
     "next": "15.5.16",
     "onnxruntime-web": "^1.27.0",
+    "pg": "^8.23.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hot-toast": "^2.5.2",
@@ -37,6 +44,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "15.5.18",
     "prettier": "3.8.3",
+    "prisma": "^7.9.1",
     "source-map-loader": "^5.0.0",
     "typescript": "5.9.3",
     "vitest": "^3.2.4"
@@ -44,5 +52,11 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@10.18.2"
+  "packageManager": "pnpm@10.18.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "prisma",
+      "@prisma/engines"
+    ]
+  }
 }
