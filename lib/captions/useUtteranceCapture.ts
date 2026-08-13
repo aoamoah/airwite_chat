@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { UtteranceSegmenter, frameLevel } from './segmenter';
-import { TARGET_SAMPLE_RATE, downsample, encodeWav } from './wav';
+import { TARGET_SAMPLE_RATE, downsample, encodeWav, preferredRecordingType } from './wav';
 
 const WORKLET_URL = '/worklets/pcm-capture.js';
 
@@ -22,7 +22,15 @@ const PRE_ROLL_MS = 300;
 const MAX_BUFFER_MS = 8_000;
 
 export type Utterance = {
+  /** What to send. Opus where the browser could record it, otherwise the WAV. */
   audio: Blob;
+  /**
+   * The same speech as WAV, present only when `audio` is a compressed recording
+   * the service might refuse. Costs nothing to keep — it was captured anyway to
+   * detect speech — and turns a rejection into one retry instead of a lost
+   * caption.
+   */
+  fallback?: Blob;
   /** Seconds of speech, for reporting what a caption cost to produce. */
   durationSec: number;
 };
@@ -70,6 +78,9 @@ export function useUtteranceCapture(
     let disposed = false;
     let context: AudioContext | null = null;
     let node: AudioWorkletNode | null = null;
+    // Assigned once the pipeline is up. The recorder is attached to the track,
+    // not the audio context, so closing the context does not stop it.
+    let abandonRecording: (() => void) | null = null;
 
     setStatus('starting');
     setError(null);
@@ -80,8 +91,52 @@ export function useUtteranceCapture(
         await context.audioWorklet.addModule(WORKLET_URL);
         if (disposed) return;
 
-        const source = context.createMediaStreamSource(new MediaStream([track]));
+        const stream = new MediaStream([track]);
+        const source = context.createMediaStreamSource(stream);
         node = new AudioWorkletNode(context, 'pcm-capture');
+
+        /**
+         * An Opus recording of the same speech, roughly an eighth the size.
+         *
+         * Run alongside the sample capture rather than instead of it: the
+         * samples are needed to detect speech at all, so the WAV comes free,
+         * and having both means an unsupported container costs a retry rather
+         * than a caption.
+         */
+        const recordingType = preferredRecordingType();
+        let recorder: MediaRecorder | null = null;
+        let chunks: Blob[] = [];
+
+        const startRecording = () => {
+          if (!recordingType) return;
+          try {
+            recorder = new MediaRecorder(stream, { mimeType: recordingType });
+            chunks = [];
+            recorder.ondataavailable = (event) => {
+              if (event.data.size > 0) chunks.push(event.data);
+            };
+            recorder.start();
+          } catch (cause) {
+            console.error('[captions] could not record Opus, using WAV', cause);
+            recorder = null;
+          }
+        };
+
+        const stopRecording = (): Promise<Blob | null> =>
+          new Promise((resolve) => {
+            const active = recorder;
+            recorder = null;
+            if (!active || active.state === 'inactive') return resolve(null);
+            active.onstop = () => {
+              resolve(chunks.length > 0 ? new Blob(chunks, { type: active.mimeType }) : null);
+              chunks = [];
+            };
+            try {
+              active.stop();
+            } catch {
+              resolve(null);
+            }
+          });
 
         const rate = context.sampleRate;
         const segmenter = new UtteranceSegmenter();
@@ -115,6 +170,7 @@ export function useUtteranceCapture(
             setSpeaking(true);
             collecting = [...preRoll];
             collected = preRollSamples;
+            startRecording();
           }
 
           if (segmenter.isSpeaking || decision.type === 'end' || decision.type === 'discard') {
@@ -134,19 +190,32 @@ export function useUtteranceCapture(
           if (decision.type === 'end' || decision.type === 'discard') {
             setSpeaking(false);
             const captured = concat(collecting, collected);
+            const wanted = decision.type === 'end' && captured.length > 0;
             collecting = [];
             collected = 0;
             preRoll.length = 0;
             preRollSamples = 0;
 
-            if (decision.type === 'end' && captured.length > 0) {
+            void stopRecording().then((recorded) => {
+              if (disposed || !wanted) return;
               const reduced = downsample(captured, rate, TARGET_SAMPLE_RATE);
+              const wav = encodeWav(reduced, TARGET_SAMPLE_RATE);
               onUtteranceRef.current({
-                audio: encodeWav(reduced, TARGET_SAMPLE_RATE),
+                audio: recorded ?? wav,
+                fallback: recorded ? wav : undefined,
                 durationSec: reduced.length / TARGET_SAMPLE_RATE,
               });
-            }
+            });
           }
+        };
+
+        abandonRecording = () => {
+          try {
+            if (recorder && recorder.state !== 'inactive') recorder.stop();
+          } catch {
+            // Already stopped, which is the state we wanted.
+          }
+          recorder = null;
         };
 
         source.connect(node);
@@ -166,6 +235,7 @@ export function useUtteranceCapture(
     return () => {
       disposed = true;
       setSpeaking(false);
+      abandonRecording?.();
       if (node) {
         node.port.onmessage = null;
         node.disconnect();

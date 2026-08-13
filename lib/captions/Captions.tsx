@@ -71,14 +71,43 @@ export function Captions({ participantToken }: { participantToken: string }) {
   // silence.
   const listening = enabled && !micMuted;
 
+  /**
+   * Whether the compressed recording is worth sending.
+   *
+   * Opus is roughly an eighth the size of WAV, which matters both for data
+   * cost and for how long the upload takes before transcription can start. The
+   * service documents Ogg but not WebM, so the first rejection settles it for
+   * the session and every later utterance goes straight to WAV.
+   */
+  const compressedAccepted = React.useRef(true);
+
   const handleUtterance = React.useCallback(
     async (utterance: Utterance) => {
       if (inFlight.current >= MAX_IN_FLIGHT) return;
       inFlight.current++;
-      setUploaded((total) => total + utterance.audio.size);
+
+      const useCompressed = utterance.fallback !== undefined && compressedAccepted.current;
+      const first = useCompressed ? utterance.audio : (utterance.fallback ?? utterance.audio);
+
+      const send = async (clip: Blob) => {
+        setUploaded((total) => total + clip.size);
+        return transcribe(clip, language, participantToken);
+      };
 
       try {
-        const text = await transcribe(utterance.audio, language, participantToken);
+        let text: string;
+        try {
+          text = await send(first);
+        } catch (cause) {
+          // A refused format is worth one retry with the uncompressed copy; a
+          // network or server problem is not, since WAV would fail the same way.
+          const refused = cause instanceof TranscriptionError && !cause.retryable && useCompressed;
+          if (!refused || !utterance.fallback) throw cause;
+          console.warn('[captions] compressed audio refused, falling back to WAV');
+          compressedAccepted.current = false;
+          text = await send(utterance.fallback);
+        }
+
         if (text) {
           publish(text, language);
           setError(null);

@@ -1,11 +1,11 @@
 /**
  * Turns captured audio into something the transcription API accepts.
  *
- * The API takes mp3, wav, flac, or ogg — notably not webm, which is what
- * Chrome's MediaRecorder produces by default. Where the browser can record
- * Ogg/Opus we use that, because it is roughly eight times smaller. Where it
- * cannot, we build a WAV here: it is a header and raw samples, so it needs no
- * encoder and no dependency.
+ * The API documents mp3, wav, flac, and ogg. Opus is worth reaching for at
+ * roughly an eighth the size, so a recording is attempted first — including
+ * WebM, which is undocumented but wraps the same codec. WAV is built here as
+ * the fallback: a header and raw samples, so it needs no encoder and no
+ * dependency, and it is known to work.
  */
 
 /** What speech recognition wants. Sending more is paying to upload detail no model uses. */
@@ -78,18 +78,34 @@ export function encodeWav(samples: Float32Array, sampleRate: number = TARGET_SAM
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-/** Ogg/Opus recording types worth trying, cheapest first. */
-const PREFERRED_RECORDING_TYPES = ['audio/ogg;codecs=opus', 'audio/ogg'];
-
 /**
- * The best container this browser can record that the API will also accept, or
- * null when there is none and WAV has to be built by hand.
+ * Opus containers worth recording into, best first.
+ *
+ * Firefox offers Ogg; Chrome and Safari only offer WebM. Both wrap the same
+ * Opus stream, and the service was observed to inspect the audio itself rather
+ * than trust the declared type — so WebM is worth attempting even though the
+ * API documents only Ogg. If it turns out to be rejected, the caller still
+ * holds the WAV it captured in parallel.
  */
+const PREFERRED_RECORDING_TYPES = ['audio/ogg;codecs=opus', 'audio/ogg', 'audio/webm;codecs=opus'];
+
+/** The best Opus container this browser can record, or null if it cannot. */
 export function preferredRecordingType(): string | null {
   if (typeof MediaRecorder === 'undefined') return null;
   for (const type of PREFERRED_RECORDING_TYPES) {
     if (MediaRecorder.isTypeSupported(type)) return type;
   }
-  // Deliberately no webm fallback: Chrome offers it and the API rejects it.
   return null;
+}
+
+/**
+ * What to call a recording when uploading it.
+ *
+ * Ogg is the only Opus container the API lists, so WebM is declared as Ogg.
+ * That is a claim about the codec rather than the container, and the service
+ * decodes by inspection — but it is a guess, which is why the WAV fallback
+ * exists.
+ */
+export function uploadContentType(recordingType: string): string {
+  return recordingType.startsWith('audio/wav') ? 'audio/wav' : 'audio/ogg';
 }

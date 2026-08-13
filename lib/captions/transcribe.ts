@@ -1,4 +1,5 @@
 import type { CaptionLanguage } from './types';
+import { uploadContentType } from './wav';
 
 /**
  * Sends one utterance to be transcribed.
@@ -16,7 +17,9 @@ export async function transcribe(
   const response = await fetch(`/api/transcribe?language=${encodeURIComponent(language)}`, {
     method: 'POST',
     headers: {
-      'Content-Type': audio.type || 'audio/wav',
+      // A recorder reports its own container, which is not always one the
+      // service names. This maps it to the closest type the API documents.
+      'Content-Type': uploadContentType(audio.type || 'audio/wav'),
       Authorization: `Bearer ${participantToken}`,
     },
     body: audio,
