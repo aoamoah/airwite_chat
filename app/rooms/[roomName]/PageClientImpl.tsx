@@ -32,6 +32,7 @@ import { useLowCPUOptimizer } from '@/lib/usePerfomanceOptimiser';
 import { AnnotationLayer } from '@/lib/annotations/AnnotationLayer';
 import { FeatureProvider, useFeatures } from '@/lib/config/FeatureFlags';
 import type { PublicConfig } from '@/lib/config/types';
+import { Captions } from '@/lib/captions/Captions';
 import { ConnectionNotice } from '@/lib/network/ConnectionNotice';
 import { DataModeControl } from '@/lib/network/DataModeControl';
 import { DataSaver } from '@/lib/network/DataSaver';
@@ -289,6 +290,9 @@ function VideoConferenceComponent(props: {
             chatMessageFormatter={formatChatMessageLinks}
             SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
           />
+          {features.captions && (
+            <Captions participantToken={props.connectionDetails.participantToken} />
+          )}
           {features.dataSaver && <DataSaver state={props.dataMode} />}
           {features.networkIndicator && <ConnectionNotice />}
           {features.annotation && <AnnotationLayer />}

@@ -16,6 +16,10 @@ export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze({
     // connection, and both of these cost nothing when the network is fine.
     dataSaver: true,
     networkIndicator: true,
+    // Off until an administrator opts in. Captions send each speaker's audio to
+    // a third-party service, which is a disclosure a deployment has to make on
+    // purpose rather than inherit from a default.
+    captions: false,
   }),
   debug: Object.freeze({
     enabled: false,

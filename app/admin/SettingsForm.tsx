@@ -32,6 +32,11 @@ const FEATURE_ROWS: Row<keyof FeatureConfig>[] = [
     label: 'Connection warnings',
     hint: 'Shows a short message when a participant’s connection is weak or dropping. Hidden while the connection is fine.',
   },
+  {
+    key: 'captions',
+    label: 'Live captions',
+    hint: 'Lets participants have their own speech transcribed and shown to the meeting, in Twi or English. Speech is sent to an external service for transcription, so enable it only where participants can be told that.',
+  },
 ];
 
 const DEBUG_ROWS: Row<keyof DebugConfig>[] = [

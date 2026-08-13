@@ -8,7 +8,7 @@ import * as React from 'react';
  * They all live in the same corner of a phone screen, so two open at once means
  * one covering the other. Only one is allowed open at a time.
  */
-export type PanelId = 'annotation' | 'airwrite' | 'dataSaver';
+export type PanelId = 'annotation' | 'airwrite' | 'dataSaver' | 'captions';
 
 type PanelStack = {
   open: PanelId | null;

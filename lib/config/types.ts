@@ -7,7 +7,7 @@
  * Only features that something actually reads belong here. A flag with no
  * consumer produces an admin toggle that appears to do something and doesn't.
  */
-export type FeatureKey = 'annotation' | 'airwrite' | 'dataSaver' | 'networkIndicator';
+export type FeatureKey = 'annotation' | 'airwrite' | 'dataSaver' | 'networkIndicator' | 'captions';
 
 export type FeatureConfig = Record<FeatureKey, boolean>;
 
