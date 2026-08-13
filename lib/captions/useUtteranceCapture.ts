@@ -15,8 +15,11 @@ const WORKLET_URL = '/worklets/pcm-capture.js';
  */
 const PRE_ROLL_MS = 300;
 
-/** Refuses to grow without bound if an utterance never ends. */
-const MAX_BUFFER_MS = 15_000;
+/**
+ * Refuses to grow without bound if an utterance never ends. Comfortably above
+ * the segmenter's own cut-off, which is what actually ends utterances.
+ */
+const MAX_BUFFER_MS = 8_000;
 
 export type Utterance = {
   audio: Blob;

@@ -19,6 +19,13 @@ export type SegmenterOptions = {
    * An utterance is cut here even mid-sentence. Someone who talks without
    * pausing would otherwise never produce a caption at all, and the upload
    * would grow without bound.
+   *
+   * Measured against the live service, transcription takes roughly as long as
+   * the clip itself — a two-second clip came back in 1.4s, a ten-second clip in
+   * 11s. So this figure is very nearly the worst-case delay before a caption
+   * appears, which is why it is six seconds rather than the ten it started at.
+   * Raising it buys the model longer phrases at a directly proportional cost in
+   * lag.
    */
   maxUtteranceMs?: number;
 };
@@ -27,7 +34,7 @@ export const DEFAULT_SEGMENTER: Required<SegmenterOptions> = {
   speechThreshold: 0.02,
   hangoverMs: 700,
   minUtteranceMs: 400,
-  maxUtteranceMs: 10_000,
+  maxUtteranceMs: 6_000,
 };
 
 export type SegmentEvent =
