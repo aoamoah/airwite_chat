@@ -1,0 +1,545 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Automatic Speech Recognition API",
+        "description": "Transcribes audio to text in Ghanaian and African languages. Supports long-form audio with optional segment-level timing. Use GET /languages to retrieve the full list of supported language codes.",
+        "termsOfService": "https://algorine.com/termsofuse/",
+        "contact": {
+            "name": "Khaya A.I",
+            "url": "https://khaya.ai/",
+            "email": "subscriptions@khaya.ai"
+        },
+        "license": {
+            "name": "End User License Agreement (EULA)",
+            "url": "https://algorine.com/termsofuse/"
+        },
+        "version": "v3"
+    },
+    "servers": [
+        {
+            "url": "https://translation-api.ghananlp.org/asr/v3"
+        }
+    ],
+    "paths": {
+        "/languages": {
+            "get": {
+                "summary": "Get available languages",
+                "description": "Returns the languages available for transcription. Each entry includes an ISO 639-3 `code` and a human-readable `name`.",
+                "operationId": "get_languages_v2_languages_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LanguagesResponse"
+                                },
+                                "example": {
+                                    "languages": [
+                                        {
+                                            "code": "ewe",
+                                            "name": "Ewe"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "An unexpected error occurred while processing the request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "system_error": {
+                                        "summary": "Unexpected server error",
+                                        "value": {
+                                            "error": {
+                                                "code": "SYSTEM_ERROR",
+                                                "message": "An unexpected error occurred while processing the request.",
+                                                "details": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/transcribe": {
+            "post": {
+                "summary": "Transcribe audio",
+                "description": "Transcribes an audio clip to text. Set `timestamps` to `word` or `segment` to include timing information in the response.",
+                "operationId": "transcribe_endpoint_v2_transcribe_post",
+                "parameters": [
+                    {
+                        "name": "language",
+                        "in": "query",
+                        "description": "ISO 639-3 language code for the audio. See GET /languages for the full list of supported codes and names.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "timestamps",
+                        "in": "query",
+                        "description": "Timestamp granularity to include in the response as `timings`. Omit to exclude timings from the response.",
+                        "schema": {
+                            "enum": [
+                                "segment",
+                                "word"
+                            ],
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Raw audio bytes to transcribe.",
+                    "content": {
+                        "audio/mpeg": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AudioBinary"
+                            },
+                            "example": "<binary MP3 audio>"
+                        },
+                        "audio/wav": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AudioBinary"
+                            },
+                            "example": "<binary WAV audio>"
+                        },
+                        "audio/flac": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AudioBinary"
+                            },
+                            "example": "<binary FLAC audio>"
+                        },
+                        "audio/ogg": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AudioBinary"
+                            },
+                            "example": "<binary OGG audio>"
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TranscriptionResponse"
+                                },
+                                "examples": {
+                                    "no_timestamps": {
+                                        "summary": "timestamps omitted",
+                                        "value": {
+                                            "text": "Hello, how are you doing today?"
+                                        }
+                                    },
+                                    "word_timestamps": {
+                                        "summary": "timestamps=word",
+                                        "value": {
+                                            "text": "Hello world",
+                                            "timings": {
+                                                "unit": "seconds",
+                                                "granularity": "word",
+                                                "segments": [],
+                                                "words": [
+                                                    {
+                                                        "word": "Hello",
+                                                        "start": 0,
+                                                        "end": 0.4
+                                                    },
+                                                    {
+                                                        "word": "world",
+                                                        "start": 0.4,
+                                                        "end": 0.9
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "segment_timestamps": {
+                                        "summary": "timestamps=segment",
+                                        "value": {
+                                            "text": "Hello world",
+                                            "timings": {
+                                                "unit": "seconds",
+                                                "granularity": "segment",
+                                                "segments": [
+                                                    {
+                                                        "text": "Hello world",
+                                                        "start": 0,
+                                                        "end": 0.9
+                                                    }
+                                                ],
+                                                "words": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The request payload contains invalid parameters.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "empty_audio": {
+                                        "summary": "No audio data was sent",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "EMPTY_AUDIO",
+                                                        "target": "audio",
+                                                        "message": "Audio data is required"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "unsupported_language_unknown": {
+                                        "summary": "Unrecognized language code",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "UNSUPPORTED_LANGUAGE",
+                                                        "target": "language",
+                                                        "message": "Invalid language provided"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "unsupported_language_legacy": {
+                                        "summary": "Pre-ISO 639-3 language code",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "UNSUPPORTED_LANGUAGE",
+                                                        "target": "language",
+                                                        "message": "Invalid language provided. Use 'twi' instead."
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "invalid_timestamps": {
+                                        "summary": "Invalid value for timestamps",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "INVALID_TIMESTAMPS",
+                                                        "target": "timestamps",
+                                                        "message": "Invalid timestamps mode. Use 'segment' or 'word', or omit the parameter."
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "unsupported_timestamps": {
+                                        "summary": "Timestamp granularity not supported for this language",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "UNSUPPORTED_TIMESTAMPS",
+                                                        "target": "timestamps",
+                                                        "message": "Requested timestamps mode is not supported for this language."
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "invalid_audio_format": {
+                                        "summary": "Audio could not be decoded",
+                                        "value": {
+                                            "error": {
+                                                "code": "VALIDATION_FAILED",
+                                                "message": "The request payload contains invalid parameters.",
+                                                "details": [
+                                                    {
+                                                        "code": "INVALID_AUDIO_FORMAT",
+                                                        "target": "audio",
+                                                        "message": "Unsupported or unreadable audio format. Try WAV, MP3, FLAC, or OGG."
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "An unexpected error occurred while processing the request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "system_error": {
+                                        "summary": "Unexpected server error",
+                                        "value": {
+                                            "error": {
+                                                "code": "SYSTEM_ERROR",
+                                                "message": "An unexpected error occurred while processing the request.",
+                                                "details": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AudioBinary": {
+                "type": "string",
+                "format": "binary"
+            },
+            "LanguageDefinition": {
+                "required": [
+                    "code",
+                    "name"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "ISO 639-3 language code."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Human-readable language name."
+                    }
+                }
+            },
+            "LanguagesResponse": {
+                "required": [
+                    "languages"
+                ],
+                "type": "object",
+                "properties": {
+                    "languages": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LanguageDefinition"
+                        }
+                    }
+                }
+            },
+            "WordTimestamp": {
+                "required": [
+                    "word",
+                    "start",
+                    "end"
+                ],
+                "type": "object",
+                "properties": {
+                    "word": {
+                        "type": "string",
+                        "description": "The transcribed word."
+                    },
+                    "start": {
+                        "type": "number",
+                        "description": "Start time in seconds.",
+                        "format": "float"
+                    },
+                    "end": {
+                        "type": "number",
+                        "description": "End time in seconds.",
+                        "format": "float"
+                    }
+                }
+            },
+            "SegmentTimestamp": {
+                "required": [
+                    "text",
+                    "start",
+                    "end"
+                ],
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "The transcribed text for this segment."
+                    },
+                    "start": {
+                        "type": "number",
+                        "description": "Start time in seconds.",
+                        "format": "float"
+                    },
+                    "end": {
+                        "type": "number",
+                        "description": "End time in seconds.",
+                        "format": "float"
+                    }
+                }
+            },
+            "TranscriptionTimings": {
+                "required": [
+                    "unit",
+                    "granularity",
+                    "segments",
+                    "words"
+                ],
+                "type": "object",
+                "properties": {
+                    "unit": {
+                        "enum": [
+                            "seconds"
+                        ],
+                        "type": "string",
+                        "description": "Time unit for all start and end values."
+                    },
+                    "granularity": {
+                        "enum": [
+                            "segment",
+                            "word"
+                        ],
+                        "type": "string",
+                        "description": "Matches the `timestamps` query parameter value used in the request."
+                    },
+                    "segments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SegmentTimestamp"
+                        },
+                        "description": "Populated when `timestamps=segment`. Empty otherwise."
+                    },
+                    "words": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WordTimestamp"
+                        },
+                        "description": "Populated when `timestamps=word`. Empty otherwise."
+                    }
+                },
+                "description": "Present only when the `timestamps` query parameter is set. `words` is populated when `timestamps=word`; `segments` is populated when `timestamps=segment`. The other array is empty."
+            },
+            "TranscriptionResponse": {
+                "required": [
+                    "text"
+                ],
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "The full transcribed text."
+                    },
+                    "timings": {
+                        "$ref": "#/components/schemas/TranscriptionTimings"
+                    }
+                }
+            },
+            "ErrorDetail": {
+                "required": [
+                    "code",
+                    "message"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Machine-readable code identifying the specific validation failure, e.g. EMPTY_AUDIO, UNSUPPORTED_LANGUAGE, INVALID_AUDIO_FORMAT, INVALID_TIMESTAMPS, UNSUPPORTED_TIMESTAMPS."
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "Name of the request field this error relates to, e.g. audio, language, timestamps.",
+                        "nullable": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Human-readable description of this specific validation failure."
+                    }
+                }
+            },
+            "ErrorBody": {
+                "required": [
+                    "code",
+                    "message",
+                    "details"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "VALIDATION_FAILED for 400 responses, SYSTEM_ERROR for 500 responses."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Human-readable summary of the error."
+                    },
+                    "details": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErrorDetail"
+                        },
+                        "description": "One entry per invalid field. Empty for 500 responses."
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "required": [
+                    "error"
+                ],
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "$ref": "#/components/schemas/ErrorBody"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "Ocp-Apim-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}

@@ -47,6 +47,9 @@ Sign in to the admin area at [/admin/login](http://localhost:3000/admin/login) t
 
 ## Deployment notes
 
-- Set `NEXT_PUBLIC_SITE_URL` so link previews resolve to absolute URLs.
+The application runs on Vercel; PostgreSQL is hosted separately on Render.
+
+- Set `DATABASE_URL` and `NEXT_PUBLIC_SITE_URL` in the Vercel project.
 - Run `pnpm db:deploy` as part of the release, then `pnpm admin:create` once to seed the first administrator.
-- The login attempt throttle is held in process memory, so it is per-instance. Move it into the database before running more than one instance.
+- Failed sign-ins are throttled per caller address in PostgreSQL — ten per fifteen minutes — so the limit holds across serverless instances.
+- **Known gap:** each serverless instance opens its own database connections. Under concurrency this can exhaust the Postgres connection limit — use a pooler, or cap the pool size explicitly.

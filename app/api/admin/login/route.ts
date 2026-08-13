@@ -2,37 +2,17 @@ import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/admin/db';
 import { hashPassword, verifyPassword } from '@/lib/admin/password';
 import { createSession, pruneExpiredSessions } from '@/lib/admin/session';
+import {
+  clearFailures,
+  clientKey,
+  isThrottled,
+  pruneExpiredAttempts,
+  recordFailure,
+} from '@/lib/admin/throttle';
 
 // Argon2 and the Postgres driver are native modules; neither runs on Edge.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_ATTEMPTS = 8;
-
-/**
- * Throttles password guessing. This lives in process memory, so it is a speed
- * bump per instance rather than a guarantee — worth having, not worth trusting
- * as the only defence. Move it into Postgres if the app is ever run multi-instance.
- */
-const attempts = new Map<string, { count: number; resetAt: number }>();
-
-function tooManyAttempts(key: string): boolean {
-  const now = Date.now();
-  const record = attempts.get(key);
-  if (!record || now > record.resetAt) return false;
-  return record.count >= MAX_ATTEMPTS;
-}
-
-function recordFailure(key: string): void {
-  const now = Date.now();
-  const record = attempts.get(key);
-  if (!record || now > record.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS });
-  } else {
-    record.count++;
-  }
-}
 
 /**
  * A hash to check against when the username does not exist, so a missing
@@ -57,8 +37,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Username and password are required.' }, { status: 400 });
   }
 
-  const throttleKey = username.toLowerCase();
-  if (tooManyAttempts(throttleKey)) {
+  const throttleKey = clientKey(request);
+  if (await isThrottled(throttleKey)) {
     return NextResponse.json(
       { error: 'Too many attempts. Try again in a few minutes.' },
       { status: 429 },
@@ -77,12 +57,13 @@ export async function POST(request: Request) {
     const valid = admin !== null && admin.isActive && passwordMatches;
 
     if (!admin || !valid) {
-      recordFailure(throttleKey);
+      await recordFailure(throttleKey);
       // One message for every failure: no hint about which half was wrong.
       return NextResponse.json({ error: 'Incorrect username or password.' }, { status: 401 });
     }
 
-    attempts.delete(throttleKey);
+    await clearFailures(throttleKey);
+    await pruneExpiredAttempts();
     await pruneExpiredSessions();
     await createSession(admin.id);
     await getPrisma().admin.update({

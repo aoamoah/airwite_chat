@@ -39,6 +39,20 @@ model AdminSession {
   @@map("admin_sessions")
 }
 
+/// Failed sign-in attempts, counted per caller within a rolling window.
+///
+/// In the database rather than in memory because the application runs on
+/// serverless instances: a counter held in module memory is per instance, so an
+/// attacker spread across instances is barely slowed by it.
+model AdminLoginAttempt {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("admin_login_attempts")
+}
+
 /// Application feature settings, as one row holding the whole config document.
 ///
 /// A row per key would make a partial save look like a valid config with some

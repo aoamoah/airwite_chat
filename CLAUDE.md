@@ -171,6 +171,19 @@ behind the AirWrite diagnostics flag and is hidden from ordinary participants.
 
 The remaining GPU work can be revisited later.
 
+### Deployment
+
+The application runs on **Vercel**. PostgreSQL is hosted separately on
+**Render**. Deployed successfully as of 2026-08-13.
+
+Vercel is serverless, which has two consequences that matter more than they
+would on a single long-lived server:
+
+- There is no persistent filesystem, and no single process. Anything kept in
+  module memory is per-instance and may vanish between requests.
+- Every concurrent instance opens its own database connections, against a
+  Postgres that allows a limited number of them.
+
 ### Administration
 
 Implemented. `/admin` and `/admin/login`, protected server-side by a session
@@ -182,8 +195,14 @@ check in each page and route handler rather than by middleware.
   only a SHA-256 digest of the token, so a leaked table cannot be replayed, and
   there is no signing secret to manage.
 - `pnpm admin:create` creates or resets an administrator account.
-- The login attempt throttle lives in process memory and is therefore
-  per-instance. Move it into PostgreSQL before running more than one instance.
+- Failed sign-ins are counted in PostgreSQL (`lib/admin/throttle.ts`), ten per
+  address per fifteen minutes, cleared on a successful sign-in. It lives in the
+  database because module memory on a serverless host is per instance, which an
+  attacker spreading attempts across instances would sidestep.
+- Failures are counted against **the caller's address, not the username**.
+  Counting per username would let anyone lock a real administrator out of their
+  own deployment with a handful of wrong guesses. A caller whose address cannot
+  be determined is not throttled rather than sharing a bucket with everyone else.
 
 ### Feature configuration
 
@@ -191,6 +210,36 @@ Implemented in `lib/config/`. See section 5.
 
 `DebugMode`, the Shift+D LiveKit panel, used to be mounted for every
 participant; it is now gated behind the connection-statistics flag.
+
+### Data Saver and connection handling
+
+Implemented in `lib/network/`, behind the `dataSaver` and `networkIndicator`
+flags. See section 12.
+
+### Floating panels
+
+The annotation toolbar, the AirWrite panel, and the data-use control all float
+over the meeting. Two conventions hold them together, and new panels must follow
+both:
+
+- **One open at a time.** `lib/ui/PanelStack.tsx` holds a single open slot.
+  Losing it must actually stop what the panel was doing — put the pen down, shut
+  the camera pipeline off — not merely hide it.
+- **A documented z-index scale**, at the top of `styles/globals.css`. LiveKit
+  ships `z-index: 5` on its device menus and nothing at all on chat or the
+  settings modal, so all three needed raising above these panels. The rule is
+  that anything opened on purpose covers anything merely sitting there.
+
+Panels are draggable via `lib/ui/useDraggable.ts`, which remembers position per
+panel. Only the grip starts a drag: making a whole panel draggable turns every
+button press into a potential drag, which misfires constantly on a touchscreen.
+
+Two things here are load-bearing and easy to break. Annotation boards are matched
+to video elements by `MediaStreamTrack` id, so anything that restarts a camera —
+a resolution change, a device switch — swaps that id without re-rendering; the
+lookup is therefore rebuilt at measure time, never cached. And a muted camera
+keeps its publication and its element, so muted publications are excluded or
+Audio only grows boards for tiles showing a placeholder.
 
 ### Branding
 
@@ -252,11 +301,17 @@ Avoid requiring administrators to manually edit JSON.
 
 Implemented in `lib/config/`, backed by PostgreSQL rather than a JSON file.
 
-A JSON file was built first and then replaced. The deployment target has an
-ephemeral filesystem, so a saved setting would be lost on every redeploy. The
-whole configuration is now one JSON document in a single `app_settings` row,
-which also makes a save all-or-nothing — a row per key would let a partial write
+A JSON file was built first and then replaced. The application runs serverless on
+Vercel, which has no persistent filesystem and no single process to own one, so a
+saved setting would not have survived — nor been visible to the next request.
+The whole configuration is now one JSON document in a single `app_settings` row,
+which also makes a save all-or-nothing: a row per key would let a partial write
 look like a valid config with keys missing.
+
+The in-memory read cache is per instance, so a setting changed by an
+administrator reaches other instances within its short TTL rather than
+immediately. That is intended; do not replace it with something stronger without
+a reason.
 
 The stored shape is:
 
@@ -264,7 +319,9 @@ The stored shape is:
 {
   "features": {
     "annotation": true,
-    "airwrite": false
+    "airwrite": false,
+    "dataSaver": true,
+    "networkIndicator": true
   },
   "debug": {
     "enabled": false,
@@ -893,25 +950,34 @@ Unless the user explicitly changes priorities, prefer this order:
 - Provide public feature configuration
 - Make disabled features disappear cleanly
 
-## Priority 4 — Lightweight client experience — partly done
+## Priority 4 — Lightweight client experience — done
 
-- Remove/hide technical controls — done: the AirWrite readout and the LiveKit
-  debug panel are both behind admin flags.
-- Avoid unnecessary resource loading — done for AirWrite.
-- Mobile-friendly UI — **not yet audited on real devices.**
-- Simple controls — not yet reviewed.
+- Remove/hide technical controls — the AirWrite readout and the LiveKit debug
+  panel are both behind admin flags.
+- Avoid unnecessary resource loading — AirWrite fetches nothing while disabled.
+- Mobile-friendly UI — verified on a real device, 2026-08-13. Getting there took
+  fixing LiveKit's own control bar, which caps at one non-wrapping row and put
+  screen share off the edge of a phone screen, and raising its device menus,
+  chat, and settings modal above this app's floating panels.
+- Simple controls — the data-use control collapses to a pill; the panels are
+  draggable and mutually exclusive.
 
-## Priority 5 — Africa-focused network features — not started
+## Priority 5 — Africa-focused network features — built, not proven
 
-- Data Saver
-- network quality
-- weak-connection handling
+- Data Saver — three modes: Normal, Low data, Audio only. Chosen before joining
+  or during a meeting, remembered across meetings. Low data caps capture at 180p,
+  pins incoming video to its lowest layer, and turns simulcast off — simulcast
+  publishes several encodings at once, which is the opposite of saving data.
+- Network quality — a plain-language notice on Poor or Lost, and nothing at all
+  while the connection is fine.
+- Weak-connection handling — sustained Poor steps down to Low data, then to Audio
+  only; Lost goes straight to Audio only. Automatic changes only ever step *down*,
+  are never remembered, and back off for two minutes once overruled.
 
-This is the next substantial block of work, and the one the product exists for.
-LiveKit already provides most of the machinery — adaptive stream and dynacast
-are on, and connection quality is observable — so the open questions are product
-decisions: what Data Saver switches off, what a participant sees as their
-connection degrades, and whether video is sacrificed before audio.
+**What remains is proof.** The decision logic is unit-tested, but none of it has
+run against a genuinely weak network. Before trusting it, watch a real degraded
+connection and check that the thresholds in `lib/network/degrade.ts` are right —
+they were chosen by reasoning, not measurement.
 
 ## Priority 6 — Deferred/experimental functionality
 
@@ -1046,16 +1112,18 @@ The next major milestone should be considered successful when:
 
 ## Status as of 2026-08-13
 
-Points 1–11 and 14 are met and were verified end to end against the real
-database and a production build.
+**All fourteen are met.** Points 1–11 and 14 were verified end to end against the
+real database and a production build, point 12 on a real device, and point 13 by
+a successful deployment to Vercel.
 
-Point 12 (mobile-friendly) has **not** been audited on real devices since the
-admin UI was added.
+This milestone is complete. One thing is known-imperfect rather than unmet:
 
-Point 13 (deployable) is **untested on the target host**. Before a deploy:
-`DATABASE_URL` and `NEXT_PUBLIC_SITE_URL` must be set there, `pnpm db:deploy`
-must run as part of the release, and `pnpm admin:create` must be run once to
-seed an administrator.
+- Each serverless instance opens its own database connections. Under real
+  concurrency this can exhaust the Postgres connection limit; a pooler, or a
+  small explicit pool size, is the fix.
+
+The login throttle previously listed here was moved into PostgreSQL and verified
+to survive a process restart.
 
 ---
 
