@@ -1,7 +1,19 @@
+/**
+ * Scrolls on its own rather than through the page.
+ *
+ * globals.css pins html and body to the viewport with overflow hidden, which is
+ * right for a meeting and wrong here: the settings list is taller than a phone
+ * screen, and without this the bottom of it is simply unreachable. body is a
+ * flex column, so this takes the remaining height and scrolls inside it.
+ */
 .shell {
-  min-height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 2rem 1.25rem 4rem;
   display: flex;
+  align-items: flex-start;
   justify-content: center;
 }
 
@@ -111,8 +123,13 @@
 
 /* Login */
 
+/* Same reasoning as .shell: on a short screen, or with the keyboard up on a
+   phone, the sign-in form needs somewhere to go. */
 .loginShell {
-  min-height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: grid;
   place-items: center;
   padding: 1.25rem;

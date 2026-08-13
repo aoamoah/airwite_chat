@@ -45,3 +45,5 @@ yarn-error.log*
 /public/mediapipe
 /public/models
 /public/onnxruntime
+
+/docs
