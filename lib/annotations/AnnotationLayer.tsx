@@ -9,6 +9,8 @@ import { STROKE_WIDTHS, type AnnotationTool, type StrokeWidthName } from './type
 import { useAnnotations } from './useAnnotations';
 import { useAnnotationShortcuts } from './useAnnotationShortcuts';
 import { useAnnotationSurfaces, type Surface } from './useAnnotationSurfaces';
+import { AirwritingControl } from '../airwriting/AirwritingControl';
+import type { AirwritingPoint } from '../airwriting/useAirwriting';
 
 /**
  * Drop-in annotation layer for a room. Puts a board over every video on screen —
@@ -64,7 +66,7 @@ export function AnnotationLayer() {
 
   useAnnotationShortcuts({ enabled: canAnnotate, tool, setTool, onUndo: annotations.undoLast });
 
-  const { beginStroke, clearSurface } = annotations;
+  const { beginStroke, clearSurface, extendStroke, endStroke } = annotations;
   const handleBegin = React.useCallback(
     (surface: Surface, x: number, y: number) =>
       beginStroke(surface.id, x, y, color, STROKE_WIDTHS[widthName]),
@@ -73,6 +75,20 @@ export function AnnotationLayer() {
   const handleClear = React.useCallback(() => {
     if (activeSurface) clearSurface(activeSurface.id);
   }, [clearSurface, activeSurface]);
+
+  // Air-writing draws on your own camera tile, where your hand actually is.
+  const ownCameraSurfaceId = `camera:${room.localParticipant.identity}`;
+  const ownCameraVisible = surfaces.some((surface) => surface.id === ownCameraSurfaceId);
+
+  const handleAirBegin = React.useCallback(
+    (surfaceId: string, point: AirwritingPoint) =>
+      beginStroke(surfaceId, point.x, point.y, color, STROKE_WIDTHS[widthName]),
+    [beginStroke, color, widthName],
+  );
+  const handleAirExtend = React.useCallback(
+    (point: AirwritingPoint) => extendStroke(point.x, point.y),
+    [extendStroke],
+  );
 
   if (!canAnnotate) return null;
 
@@ -92,6 +108,12 @@ export function AnnotationLayer() {
           onActivate={setActiveSurface}
         />
       ))}
+      <AirwritingControl
+        surfaceId={ownCameraVisible ? ownCameraSurfaceId : null}
+        onBegin={handleAirBegin}
+        onExtend={handleAirExtend}
+        onEnd={annotations.endStroke}
+      />
       <AnnotationToolbar
         tool={tool}
         onToolChange={setTool}

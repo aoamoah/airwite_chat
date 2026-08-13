@@ -1,0 +1,91 @@
+/* Sits just above the annotation toolbar, which owns the bottom-centre strip. */
+.panel {
+  position: fixed;
+  z-index: 6;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 9.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.75rem;
+  background: var(--lk-bg2, #1e1e1e);
+  border: 1px solid var(--lk-border-color, rgba(255, 255, 255, 0.15));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  max-width: calc(100vw - 2rem);
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.8125rem;
+}
+
+.toggle {
+  white-space: nowrap;
+}
+
+.toggle[data-lk-active='true'] {
+  background-color: var(--lk-accent-bg, #1f8fff);
+}
+
+.windowPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.windowPicker select {
+  background: var(--lk-bg3, #2a2a2a);
+  color: inherit;
+  border: 1px solid var(--lk-border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 0.375rem;
+  padding: 0.15rem 0.3rem;
+  font: inherit;
+}
+
+.readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dim {
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.meter {
+  position: relative;
+  width: 7rem;
+  height: 1.1rem;
+  border-radius: 0.3rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.meterFill {
+  height: 100%;
+  transition: width 80ms linear;
+}
+
+.meterLabel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.error {
+  color: #ff6b6b;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    bottom: 8.5rem;
+  }
+}

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets a production build run without fighting a `next dev` server for .next.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
   images: {
