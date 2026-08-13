@@ -78,17 +78,23 @@ export function AirwritingControl({
   );
 
   const available = surfaceId !== null && model !== null;
-  React.useEffect(() => {
-    if (!available) setEnabled(false);
-  }, [available]);
 
   // Air-writing owns the camera pipeline while it runs, so losing the single
   // open slot to another panel has to actually stop it, not just hide it.
   const panel = usePanel('airwrite');
   const { isOpen, open, close } = panel;
+
   React.useEffect(() => {
     if (!isOpen && enabled) setEnabled(false);
   }, [isOpen, enabled]);
+
+  // Losing the camera — or the model — stops it and hands the slot back, rather
+  // than leaving the slot claimed by a panel that can no longer do anything.
+  React.useEffect(() => {
+    if (available) return;
+    setEnabled(false);
+    close();
+  }, [available, close]);
 
   const setRunning = (next: boolean) => {
     setEnabled(next);

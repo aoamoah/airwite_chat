@@ -62,27 +62,67 @@ body {
 }
 
 /**
- * LiveKit's control bar is a centred, non-wrapping flex row with a fixed
- * height, so on a narrow screen the trailing controls — screen share among
- * them — overflow past the edge and become unreachable. Letting it scroll
- * sideways keeps every control available without changing its height.
+ * Layering.
+ *
+ * LiveKit ships z-index 5 on its device menus and nothing at all on chat or the
+ * settings modal, which puts both underneath anything this app floats over the
+ * meeting. The order it needs to be, lowest first:
+ *
+ *   5   annotation surfaces (over each video tile)
+ *   6   floating panels — annotation toolbar, AirWrite, data use, notices
+ *   20  device menus, which open out of the control bar
+ *   30  chat, which takes over the screen on a phone
+ *   40  the settings modal
+ *
+ * Anything that opens on purpose covers anything that is merely sitting there.
+ */
+.lk-device-menu {
+  z-index: 20;
+}
+
+.lk-chat {
+  z-index: 30;
+}
+
+.lk-settings-menu-modal {
+  z-index: 40;
+}
+
+/**
+ * The control bar is a centred, non-wrapping flex row capped at a fixed height,
+ * so on a narrow screen the trailing controls — screen share among them —
+ * overflow past the edge and cannot be reached.
+ *
+ * It wraps onto a second row instead. Scrolling it sideways would have been
+ * less intrusive but is not an option: the device menus are absolutely
+ * positioned inside this element, and any overflow other than visible clips
+ * them. The height variable is what the video area subtracts from its own
+ * height, so it has to grow along with the bar.
  */
 @media (max-width: 600px) {
-  .lk-control-bar {
-    justify-content: flex-start;
-    gap: 0.375rem;
-    padding: 0.5rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
+  [data-lk-theme] {
+    --lk-control-bar-height: 7.5rem;
   }
 
-  .lk-control-bar::-webkit-scrollbar {
-    display: none;
+  .lk-control-bar {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding: 0.5rem;
+    max-height: none;
   }
 
   .lk-control-bar > * {
     flex: 0 0 auto;
+  }
+
+  /* Chat sizes its composer row from the same variable, which would hand it a
+     two-row-tall input for no reason. Let that row size to its content. */
+  .lk-chat {
+    grid-template-rows: var(--lk-chat-header-height) 1fr auto;
+  }
+
+  .lk-chat-form {
+    max-height: none;
   }
 }
 
